@@ -48,9 +48,11 @@ export default function TournamentSettingsPage() {
 
   // Mescla o que veio do banco com o padrão seguro
   const settings = { ...defaultSettings, ...(tournament.settings || {}) };
-
+  
   // REFORÇO ESTRUTURAL 2: Garante que tiebreakers seja sempre uma lista (Array)
-  const safeTiebreakers = Array.isArray(settings.tiebreakers) ? settings.tiebreakers : defaultSettings.tiebreakers;
+  const safeTiebreakers = Array.isArray(settings.tiebreakers) 
+    ? settings.tiebreakers 
+    : defaultSettings.tiebreakers;
 
   const standings = calculateStandings(tournament.teamIds, tournament.matches || [], settings, teams);
 
@@ -72,14 +74,16 @@ export default function TournamentSettingsPage() {
   return (
     <div className="p-6 lg:p-8">
       <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => navigate(`/tournament/${id}`)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
+        <button onClick={() => navigate(`/tournament/${id}`)} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-4 h-4" />
         </button>
         <h1 className="text-xl font-display font-bold text-foreground flex-1">Editar Sistemas — {tournament.name}</h1>
-        <Button variant="outline" size="sm" onClick={() => navigate(`/tournament/${id}/edit`)} className="gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => navigate(`/tournament/${id}/edit`)}
+          className="gap-1.5"
+        >
           <Pencil className="w-3.5 h-3.5" />
           Editar Competição
         </Button>
@@ -95,11 +99,7 @@ export default function TournamentSettingsPage() {
               <Input
                 type="number"
                 value={settings.pointsWin}
-                onChange={(e) =>
-                  updateTournament(tournament.id, {
-                    settings: { ...settings, pointsWin: parseInt(e.target.value) || 0 },
-                  })
-                }
+                onChange={(e) => updateTournament(tournament.id, { settings: { ...settings, pointsWin: parseInt(e.target.value) || 0 } })}
                 className="bg-secondary border-border"
               />
             </div>
@@ -108,11 +108,7 @@ export default function TournamentSettingsPage() {
               <Input
                 type="number"
                 value={settings.pointsDraw}
-                onChange={(e) =>
-                  updateTournament(tournament.id, {
-                    settings: { ...settings, pointsDraw: parseInt(e.target.value) || 0 },
-                  })
-                }
+                onChange={(e) => updateTournament(tournament.id, { settings: { ...settings, pointsDraw: parseInt(e.target.value) || 0 } })}
                 className="bg-secondary border-border"
               />
             </div>
@@ -121,11 +117,7 @@ export default function TournamentSettingsPage() {
               <Input
                 type="number"
                 value={settings.pointsLoss}
-                onChange={(e) =>
-                  updateTournament(tournament.id, {
-                    settings: { ...settings, pointsLoss: parseInt(e.target.value) || 0 },
-                  })
-                }
+                onChange={(e) => updateTournament(tournament.id, { settings: { ...settings, pointsLoss: parseInt(e.target.value) || 0 } })}
                 className="bg-secondary border-border"
               />
             </div>
@@ -186,29 +178,15 @@ export default function TournamentSettingsPage() {
             <Label className="text-sm font-medium text-foreground">Classificação Grupos → Mata-Mata</Label>
             <div className="text-xs text-muted-foreground space-y-1">
               <p>
-                Com <strong className="text-foreground">{groupCount} grupos</strong> e {totalKnockoutTeams} vagas no
-                mata-mata (
-                {startStage
-                  .replace("1/", "1/")
-                  .replace("1/64", "32-avos")
-                  .replace("1/32", "16-avos")
-                  .replace("1/16", "oitavas")
-                  .replace("1/8", "quartas")
-                  .replace("1/4", "semi")
-                  .replace("1/2", "final")}
-                ):
+                Com <strong className="text-foreground">{groupCount} grupos</strong> e {totalKnockoutTeams} vagas no mata-mata ({startStage.replace("1/", "1/").replace("1/64", "32-avos").replace("1/32", "16-avos").replace("1/16", "oitavas").replace("1/8", "quartas").replace("1/4", "semi").replace("1/2", "final")}):
               </p>
-              <p>
-                → <strong className="text-foreground">{qualifiersPerGroup} classificados diretos</strong> por grupo (
-                {qualifiersPerGroup * groupCount} times)
-              </p>
+              <p>→ <strong className="text-foreground">{qualifiersPerGroup} classificados diretos</strong> por grupo ({qualifiersPerGroup * groupCount} times)</p>
               {remainderSlots > 0 && (
-                <p className="text-yellow-600 dark:text-yellow-400">
-                  → Ainda faltam <strong>{remainderSlots} vaga(s)</strong> — configure abaixo os melhores classificados
-                  por posição
-                </p>
+                <p className="text-yellow-600 dark:text-yellow-400">→ Ainda faltam <strong>{remainderSlots} vaga(s)</strong> — configure abaixo os melhores classificados por posição</p>
               )}
-              {remainderSlots === 0 && <p className="text-primary">→ Vagas exatas: {qualifiersPerGroup} por grupo ✓</p>}
+              {remainderSlots === 0 && (
+                <p className="text-primary">→ Vagas exatas: {qualifiersPerGroup} por grupo ✓</p>
+              )}
             </div>
 
             {/* Best-of qualifiers */}
@@ -223,11 +201,7 @@ export default function TournamentSettingsPage() {
                       value={currentBestOfPosition}
                       min={1}
                       max={10}
-                      onChange={(e) =>
-                        updateTournament(tournament.id, {
-                          settings: { ...settings, bestOfPosition: parseInt(e.target.value) || 3 },
-                        })
-                      }
+                      onChange={(e) => updateTournament(tournament.id, { settings: { ...settings, bestOfPosition: parseInt(e.target.value) || 3 } })}
                       className="bg-secondary border-border h-8 text-xs"
                     />
                   </div>
@@ -238,19 +212,14 @@ export default function TournamentSettingsPage() {
                       value={currentBestOfQualifiers}
                       min={0}
                       max={groupCount}
-                      onChange={(e) =>
-                        updateTournament(tournament.id, {
-                          settings: { ...settings, bestOfQualifiers: parseInt(e.target.value) || 0 },
-                        })
-                      }
+                      onChange={(e) => updateTournament(tournament.id, { settings: { ...settings, bestOfQualifiers: parseInt(e.target.value) || 0 } })}
                       className="bg-secondary border-border h-8 text-xs"
                     />
                   </div>
                 </div>
                 {currentBestOfQualifiers > 0 && (
                   <p className="text-[11px] text-primary">
-                    Os {currentBestOfQualifiers} melhores {currentBestOfPosition}ºs lugares de todos os grupos se
-                    classificam
+                    Os {currentBestOfQualifiers} melhores {currentBestOfPosition}ºs lugares de todos os grupos se classificam
                   </p>
                 )}
               </div>
@@ -270,11 +239,7 @@ export default function TournamentSettingsPage() {
                 </div>
                 <Switch
                   checked={settings.knockoutLegMode === "home-away"}
-                  onCheckedChange={(v) =>
-                    updateTournament(tournament.id, {
-                      settings: { ...settings, knockoutLegMode: v ? "home-away" : "single" },
-                    })
-                  }
+                  onCheckedChange={(v) => updateTournament(tournament.id, { settings: { ...settings, knockoutLegMode: v ? "home-away" : "single" } })}
                 />
               </div>
               {settings.knockoutLegMode === "home-away" && (
@@ -285,9 +250,7 @@ export default function TournamentSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.finalSingleLeg ?? true}
-                    onCheckedChange={(v) =>
-                      updateTournament(tournament.id, { settings: { ...settings, finalSingleLeg: v } })
-                    }
+                    onCheckedChange={(v) => updateTournament(tournament.id, { settings: { ...settings, finalSingleLeg: v } })}
                   />
                 </div>
               )}
@@ -298,9 +261,7 @@ export default function TournamentSettingsPage() {
                 </div>
                 <Switch
                   checked={settings.thirdPlaceMatch ?? false}
-                  onCheckedChange={(v) =>
-                    updateTournament(tournament.id, { settings: { ...settings, thirdPlaceMatch: v } })
-                  }
+                  onCheckedChange={(v) => updateTournament(tournament.id, { settings: { ...settings, thirdPlaceMatch: v } })}
                 />
               </div>
             </div>
@@ -315,9 +276,7 @@ export default function TournamentSettingsPage() {
               <Label className="text-sm text-foreground">Regra dos gols fora</Label>
               <Switch
                 checked={settings.awayGoalsRule}
-                onCheckedChange={(v) =>
-                  updateTournament(tournament.id, { settings: { ...settings, awayGoalsRule: v } })
-                }
+                onCheckedChange={(v) => updateTournament(tournament.id, { settings: { ...settings, awayGoalsRule: v } })}
               />
             </div>
             <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/50">
@@ -338,9 +297,7 @@ export default function TournamentSettingsPage() {
               <Label className="text-sm text-foreground">Influência dos rates dos clubes</Label>
               <Switch
                 checked={settings.rateInfluence}
-                onCheckedChange={(v) =>
-                  updateTournament(tournament.id, { settings: { ...settings, rateInfluence: v } })
-                }
+                onCheckedChange={(v) => updateTournament(tournament.id, { settings: { ...settings, rateInfluence: v } })}
               />
             </div>
           </div>
