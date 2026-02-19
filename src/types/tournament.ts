@@ -141,13 +141,14 @@ export const KNOCKOUT_STAGES: { value: KnockoutStage; label: string }[] = [
   { value: "1/2", label: "Final (1/2)" },
 ];
 
-export const STAGE_TEAM_COUNTS: Record<KnockoutStage, number> = {
-  "1/64": 128,
-  "1/32": 64,
-  "1/16": 32,
-  "1/8": 16,
-  "1/4": 8,
-  "1/2": 4,
+export const STAGE_TEAM_COUNTS: Record<string, number> = {
+  "1/64": 64,
+  "1/32": 32, // Pré-oitavas (32 times)
+  "1/16": 16, // Oitavas (16 times)
+  "1/8": 8,   // Quartas (8 times)
+  "1/4": 4,   // Semis (4 times)
+  "1/2": 2,   // Final (2 times)
+  "final": 2
 };
 
 export const SPORTS = [
