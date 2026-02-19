@@ -71,8 +71,13 @@ export type Database = {
           founding_year: string | null
           id: string | null
           logo: string | null
+          logo_url: string | null
           name: string | null
-          rate: string | null
+          primary_color: string | null
+          primaryColor: string | null
+          rate: number | null
+          secondary_color: string | null
+          secondaryColor: string | null
           short_name: string | null
           user_id: string | null
         }
@@ -84,8 +89,13 @@ export type Database = {
           founding_year?: string | null
           id?: string | null
           logo?: string | null
+          logo_url?: string | null
           name?: string | null
-          rate?: string | null
+          primary_color?: string | null
+          primaryColor?: string | null
+          rate?: number | null
+          secondary_color?: string | null
+          secondaryColor?: string | null
           short_name?: string | null
           user_id?: string | null
         }
@@ -97,8 +107,13 @@ export type Database = {
           founding_year?: string | null
           id?: string | null
           logo?: string | null
+          logo_url?: string | null
           name?: string | null
-          rate?: string | null
+          primary_color?: string | null
+          primaryColor?: string | null
+          rate?: number | null
+          secondary_color?: string | null
+          secondaryColor?: string | null
           short_name?: string | null
           user_id?: string | null
         }
@@ -140,17 +155,18 @@ export type Database = {
           id: string | null
           liga_turnos: string | null
           logo: string | null
+          logo_url: string | null
           mata_mata_inicio: string | null
-          matches: string | null
+          matches: Json | null
           name: string | null
           number_of_teams: string | null
-          seasons: string | null
+          seasons: Json | null
           settings: string | null
           sport: string | null
           suico_jogos_liga: string | null
           suico_mata_mata_inicio: string | null
           suico_playoff_vagas: string | null
-          team_ids: string | null
+          team_ids: Json | null
           user_id: string | null
           year: string | null
         }
@@ -165,17 +181,18 @@ export type Database = {
           id?: string | null
           liga_turnos?: string | null
           logo?: string | null
+          logo_url?: string | null
           mata_mata_inicio?: string | null
-          matches?: string | null
+          matches?: Json | null
           name?: string | null
           number_of_teams?: string | null
-          seasons?: string | null
+          seasons?: Json | null
           settings?: string | null
           sport?: string | null
           suico_jogos_liga?: string | null
           suico_mata_mata_inicio?: string | null
           suico_playoff_vagas?: string | null
-          team_ids?: string | null
+          team_ids?: Json | null
           user_id?: string | null
           year?: string | null
         }
@@ -190,17 +207,18 @@ export type Database = {
           id?: string | null
           liga_turnos?: string | null
           logo?: string | null
+          logo_url?: string | null
           mata_mata_inicio?: string | null
-          matches?: string | null
+          matches?: Json | null
           name?: string | null
           number_of_teams?: string | null
-          seasons?: string | null
+          seasons?: Json | null
           settings?: string | null
           sport?: string | null
           suico_jogos_liga?: string | null
           suico_mata_mata_inicio?: string | null
           suico_playoff_vagas?: string | null
-          team_ids?: string | null
+          team_ids?: Json | null
           user_id?: string | null
           year?: string | null
         }

@@ -50,8 +50,8 @@ export default function CreateTeamPage() {
       setShortName(existingTeam.shortName || "");
       setAbbreviation(existingTeam.abbreviation || "");
       setFoundingYear(existingTeam.foundingYear?.toString() || "");
-      setColor1(existingTeam.colors[0] || "#1e40af");
-      setColor2(existingTeam.colors[1] || "#ffffff");
+      setColor1(existingTeam.colors?.[0] || "#333333");
+      setColor2(existingTeam.colors?.[1] || "#cccccc");
       setRate(existingTeam.rate?.toString() || "3.00");
       setLogoUrl(existingTeam.logo);
       setPreviewUrl(existingTeam.logo); // show existing logo (Storage URL)
