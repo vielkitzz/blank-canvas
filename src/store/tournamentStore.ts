@@ -46,14 +46,14 @@ function parseColors(raw: any): string[] {
 
 function dbToTeam(row: any): Team {
   return {
-    id: row.id,
-    name: row.name,
-    shortName: row.short_name,
-    abbreviation: row.abbreviation,
+    id: row.id ?? "",
+    name: row.name ?? "",
+    shortName: row.short_name ?? "",
+    abbreviation: row.abbreviation ?? "",
     logo: row.logo || row.logo_url || undefined,
     foundingYear: row.founding_year || undefined,
     colors: parseColors(row.colors),
-    rate: row.rate,
+    rate: row.rate ?? 0,
     folderId: row.folder_id || null,
   };
 }
