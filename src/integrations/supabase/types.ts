@@ -41,21 +41,21 @@ export type Database = {
       team_folders: {
         Row: {
           created_at: string | null
-          id: string | null
+          id: string
           name: string
           parent_id: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
-          id?: string | null
+          id?: string
           name: string
           parent_id?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
-          id?: string | null
+          id?: string
           name?: string
           parent_id?: string | null
           user_id?: string | null
