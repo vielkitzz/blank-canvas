@@ -1,55 +1,83 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, UserRound } from "lucide-react";
+import { Mail, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import appLogo from "@/assets/logo.svg";
 
 export default function AuthPage() {
-  const { signInAnonymously, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInAnonymously, signInWithGoogle, user } = useAuth();
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [anonLoading, setAnonLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
-  const handleGoogle = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      toast.error("Preencha todos os campos");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = isLogin
+      ? await signIn(email.trim(), password)
+      : await signUp(email.trim(), password);
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+    } else if (!isLogin) {
+      toast.success("Conta criada! Verifique seu email para confirmar.");
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     const { error } = await signInWithGoogle();
     setGoogleLoading(false);
-    if (error) toast.error(error.message);
-  };
-
-  const handleAnon = async () => {
-    setAnonLoading(true);
-    const { error } = await signInAnonymously();
-    setAnonLoading(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error((error as Error).message);
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-xs flex flex-col items-center gap-8"
+        className="w-full max-w-sm"
       >
-        <div className="text-center">
-          <img src={appLogo} alt="TM2" className="h-14 object-contain mx-auto" />
+        <div className="text-center mb-8">
+          <img src={appLogo} alt="TM2" className="h-12 object-contain mx-auto" />
           <p className="text-sm text-muted-foreground mt-2">Tournament Manager</p>
         </div>
 
-        <div className="w-full rounded-xl card-gradient border border-border shadow-card p-6 space-y-4">
-          <h2 className="text-lg font-display font-bold text-foreground text-center">Entrar</h2>
+        <div className="rounded-xl card-gradient border border-border shadow-card p-6">
+          <h2 className="text-lg font-display font-bold text-foreground mb-1">
+            {isLogin ? "Entrar" : "Criar Conta"}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            {isLogin ? "Acesse suas competições" : "Comece a gerenciar seus torneios"}
+          </p>
 
+          {/* Google Sign In */}
           <Button
             type="button"
             variant="outline"
             disabled={googleLoading}
-            onClick={handleGoogle}
-            className="w-full gap-2 text-sm h-11"
+            onClick={handleGoogleSignIn}
+            className="w-full mb-4 gap-2 text-sm"
           >
             {googleLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -64,21 +92,86 @@ export default function AuthPage() {
             Entrar com Google
           </Button>
 
-          <div className="relative">
+          <div className="relative mb-4">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">ou</span></div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  className="bg-secondary border-border pl-10"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">Senha</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="bg-secondary border-border pl-10"
+                  minLength={6}
+                  required
+                />
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full font-display font-semibold h-11 bg-primary text-primary-foreground hover:bg-primary/90 shadow-glow"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : isLogin ? (
+                "Entrar"
+              ) : (
+                "Criar Conta"
+              )}
+            </Button>
+          </form>
+
+          <div className="relative my-4">
             <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
             <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">ou</span></div>
           </div>
 
           <Button
             type="button"
-            variant="secondary"
+            variant="outline"
             disabled={anonLoading}
-            onClick={handleAnon}
-            className="w-full gap-2 text-sm h-11"
+            onClick={async () => {
+              setAnonLoading(true);
+              const { error } = await signInAnonymously();
+              setAnonLoading(false);
+              if (error) toast.error(error.message);
+            }}
+            className="w-full text-sm"
           >
-            {anonLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserRound className="w-4 h-4" />}
-            Entrar sem conta
+            {anonLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Entrar sem conta"}
           </Button>
+
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-xs text-primary hover:underline"
+            >
+              {isLogin ? "Não tem conta? Criar uma" : "Já tem conta? Entrar"}
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>
