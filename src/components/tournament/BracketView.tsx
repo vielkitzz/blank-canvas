@@ -610,10 +610,9 @@ function TeamRow({
     <div className={`flex items-center gap-1.5 px-2 ${py} ${borderBottom ? "border-b border-border/40" : ""} ${isWinner ? "bg-primary/10" : ""}`}>
       <div className="w-4 h-4 flex items-center justify-center shrink-0">
         {team?.logo ? (
-          <img src={team.logo} alt="" className="w-4 h-4 object-contain" />
-        ) : (
-          <Shield className="w-3 h-3 text-muted-foreground" />
-        )}
+          <img src={team.logo} alt="" className="w-4 h-4 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+        ) : null}
+        <Shield className={`w-3 h-3 text-muted-foreground ${team?.logo ? 'hidden' : ''}`} />
       </div>
       <span className={`text-[11px] flex-1 truncate ${isWinner ? "font-bold text-foreground" : "text-foreground"}`}>
         {team?.abbreviation || team?.shortName || "TBD"}
