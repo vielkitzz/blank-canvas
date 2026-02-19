@@ -55,7 +55,7 @@ function TeamCard({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-display font-bold text-foreground text-sm truncate">{team.name}</h3>
-          <p className="text-xs text-primary font-mono">{team.rate.toFixed(2)}</p>
+          <p className="text-xs text-primary font-mono">{(team.rate ?? 0).toFixed(2)}</p>
         </div>
         <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button onClick={onEdit} className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground">
@@ -250,11 +250,12 @@ export default function TeamsPage() {
   const [editingFolderName, setEditingFolderName] = useState("");
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
-  const filteredTeams = teams.filter((t) =>
-    t.name.toLowerCase().includes(search.toLowerCase()) ||
-    t.shortName.toLowerCase().includes(search.toLowerCase()) ||
-    t.abbreviation.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredTeams = teams.filter((t) => {
+    const q = search.toLowerCase();
+    return (t.name || "").toLowerCase().includes(q) ||
+      (t.shortName || "").toLowerCase().includes(q) ||
+      (t.abbreviation || "").toLowerCase().includes(q);
+  });
 
   const unfolderedTeams = filteredTeams.filter((t) => !t.folderId);
   const rootFolders = folders.filter((f) => !f.parentId);
@@ -289,6 +290,7 @@ export default function TeamsPage() {
   };
 
   const handleRenameFolder = (id: string) => {
+    if (editingFolderId !== id) return; // prevent double-call from blur+enter
     const trimmed = editingFolderName.trim();
     if (trimmed) {
       renameFolder(id, trimmed);
