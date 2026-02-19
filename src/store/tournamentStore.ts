@@ -33,6 +33,17 @@ function dbToTournament(row: any): Tournament {
   };
 }
 
+function parseColors(raw: any): string[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* ignore */ }
+  }
+  return ["#333333", "#cccccc"];
+}
+
 function dbToTeam(row: any): Team {
   return {
     id: row.id,
@@ -41,7 +52,7 @@ function dbToTeam(row: any): Team {
     abbreviation: row.abbreviation,
     logo: row.logo || undefined,
     foundingYear: row.founding_year || undefined,
-    colors: row.colors || [],
+    colors: parseColors(row.colors),
     rate: row.rate,
     folderId: row.folder_id || null,
   };
