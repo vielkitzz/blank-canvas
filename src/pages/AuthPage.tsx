@@ -7,11 +7,10 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
-import { lovable } from "@/integrations/lovable/index";
 import appLogo from "@/assets/logo.svg";
 
 export default function AuthPage() {
-  const { signIn, signUp, signInAnonymously, user } = useAuth();
+  const { signIn, signUp, signInAnonymously, signInWithGoogle, user } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -47,9 +46,7 @@ export default function AuthPage() {
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
+    const { error } = await signInWithGoogle();
     setGoogleLoading(false);
     if (error) toast.error((error as Error).message);
   };
