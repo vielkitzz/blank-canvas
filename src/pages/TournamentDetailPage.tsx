@@ -309,7 +309,11 @@ export default function TournamentDetailPage() {
       matches: [],
     };
     updateTournament(tournament.id, {
+      year: targetYear,
       seasons: [...(tournament.seasons || []), newSeason],
+      matches: [],
+      finalized: false,
+      groupsFinalized: false,
     });
     setNewSeasonYear("");
     toast.success(`Temporada ${targetYear} criada`);
