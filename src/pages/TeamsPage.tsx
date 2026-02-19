@@ -49,10 +49,9 @@ function TeamCard({
         <GripVertical className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
         <div className="w-10 h-10 flex items-center justify-center shrink-0">
           {team.logo ? (
-            <img src={team.logo} alt="" className="w-10 h-10 object-contain" />
-          ) : (
-            <Shield className="w-5 h-5 text-muted-foreground" />
-          )}
+            <img src={team.logo} alt="" className="w-10 h-10 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+          ) : null}
+          <Shield className={`w-5 h-5 text-muted-foreground ${team.logo ? 'hidden' : ''}`} />
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="font-display font-bold text-foreground text-sm truncate">{team.name}</h3>
