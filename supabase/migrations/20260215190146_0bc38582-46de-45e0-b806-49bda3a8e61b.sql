@@ -1,0 +1,1 @@
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS groups_finalized boolean NOT NULL DEFAULT false;

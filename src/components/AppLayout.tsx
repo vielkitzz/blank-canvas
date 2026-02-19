@@ -1,0 +1,61 @@
+import { useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import AppSidebar from "@/components/AppSidebar";
+import { AnimatePresence } from "framer-motion";
+import PageTransition from "@/components/PageTransition";
+import { Menu, X } from "lucide-react";
+
+export default function AppLayout() {
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  return (
+    <div className="flex min-h-screen w-full bg-background">
+      {/* Mobile header */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-lg border-b border-border lg:hidden">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <span className="text-sm font-display font-bold text-foreground">TM2</span>
+        <div className="w-9" />
+      </div>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="relative">
+          <AppSidebar onNavigate={() => setSidebarOpen(false)} />
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors lg:hidden"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+        <AnimatePresence mode="wait">
+          <PageTransition key={location.pathname}>
+            <Outlet />
+          </PageTransition>
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}

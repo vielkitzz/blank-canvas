@@ -1,0 +1,447 @@
+import { useState, useEffect, useCallback } from "react";
+import { Match, Team, Tournament } from "@/types/tournament";
+import { Shield, ChevronUp, ChevronDown, Play } from "lucide-react";
+import { calculateStandings, StandingRow } from "@/lib/standings";
+import { simulateHalf } from "@/lib/simulation";
+
+interface MatchPopupProps {
+  match: Match;
+  homeTeam?: Team;
+  awayTeam?: Team;
+  rateInfluence: boolean;
+  tournament?: Tournament;
+  allTeams?: Team[];
+  onSave: (updated: Match) => void;
+  onCancel: () => void;
+}
+
+type HalfKey = "h1" | "h2" | "et1" | "et2";
+
+function simulatePenaltyKick(): boolean {
+  // ~75% chance to score
+  return Math.random() < 0.75;
+}
+
+export default function MatchPopup({
+  match,
+  homeTeam,
+  awayTeam,
+  rateInfluence,
+  tournament,
+  allTeams,
+  onSave,
+  onCancel,
+}: MatchPopupProps) {
+  const isKnockout = match.stage === "knockout" || tournament?.format === "mata-mata";
+  const extraTimeEnabled = tournament?.settings.extraTime ?? false;
+
+  const [scores, setScores] = useState<Record<HalfKey, [number, number]>>({
+    h1: [0, 0],
+    h2: [0, 0],
+    et1: [0, 0],
+    et2: [0, 0],
+  });
+
+  const [activeHalf, setActiveHalf] = useState<HalfKey>("h1");
+  const [showExtraTime, setShowExtraTime] = useState(false);
+  const [showPenalties, setShowPenalties] = useState(false);
+  const [penalties, setPenalties] = useState<{ home: (boolean | null)[]; away: (boolean | null)[] }>({
+    home: [],
+    away: [],
+  });
+  const [penaltyIndex, setPenaltyIndex] = useState(0);
+  const [penaltyFinished, setPenaltyFinished] = useState(false);
+
+  const setHalfScore = (half: HalfKey, side: 0 | 1, value: number) => {
+    setScores((prev) => ({
+      ...prev,
+      [half]: side === 0 ? [value, prev[half][1]] : [prev[half][0], value],
+    }));
+  };
+
+  const regularHome = scores.h1[0] + scores.h2[0];
+  const regularAway = scores.h1[1] + scores.h2[1];
+  const etHome = scores.et1[0] + scores.et2[0];
+  const etAway = scores.et1[1] + scores.et2[1];
+  const totalHome = regularHome + (showExtraTime ? etHome : 0);
+  const totalAway = regularAway + (showExtraTime ? etAway : 0);
+
+  const [simulatedHalves, setSimulatedHalves] = useState<Set<HalfKey>>(new Set());
+
+  // After h2 is simulated in knockout: auto trigger extra time or penalties
+  useEffect(() => {
+    if (!isKnockout) return;
+    if (!simulatedHalves.has("h2")) return;
+    if (regularHome !== regularAway) return;
+
+    if (extraTimeEnabled && !showExtraTime) {
+      setShowExtraTime(true);
+      setActiveHalf("et1");
+    } else if (!extraTimeEnabled && !showPenalties) {
+      setShowPenalties(true);
+    }
+  }, [simulatedHalves, regularHome, regularAway, isKnockout, extraTimeEnabled, showExtraTime, showPenalties]);
+
+  // After et2 is simulated in knockout: auto trigger penalties if still drawn
+  useEffect(() => {
+    if (!isKnockout || !showExtraTime) return;
+    if (!simulatedHalves.has("et2")) return;
+    if (totalHome !== totalAway) return;
+    if (!showPenalties) {
+      setShowPenalties(true);
+    }
+  }, [simulatedHalves, totalHome, totalAway, isKnockout, showExtraTime, showPenalties]);
+
+  const currentHome = scores[activeHalf][0];
+  const currentAway = scores[activeHalf][1];
+
+  const increment = (side: 0 | 1) => setHalfScore(activeHalf, side, scores[activeHalf][side] + 1);
+  const decrement = (side: 0 | 1) => setHalfScore(activeHalf, side, Math.max(0, scores[activeHalf][side] - 1));
+
+  const handleSimulate = () => {
+    const homeRate = rateInfluence && homeTeam ? homeTeam.rate : 3;
+    const awayRate = rateInfluence && awayTeam ? awayTeam.rate : 3;
+    const [h, a] = simulateHalf(homeRate, awayRate);
+    setHalfScore(activeHalf, 0, h);
+    setHalfScore(activeHalf, 1, a);
+    setSimulatedHalves((prev) => new Set(prev).add(activeHalf));
+
+    if (activeHalf === "h1") setActiveHalf("h2");
+    else if (activeHalf === "et1") setActiveHalf("et2");
+  };
+
+  const allRequiredSimulated = showExtraTime
+    ? simulatedHalves.has("h1") && simulatedHalves.has("h2") && simulatedHalves.has("et1") && simulatedHalves.has("et2")
+    : simulatedHalves.has("h1") && simulatedHalves.has("h2");
+  const canSimulate = !showPenalties && !simulatedHalves.has(activeHalf) && !allRequiredSimulated;
+
+  // Penalty shootout: one-by-one
+  const penaltyScore = (side: "home" | "away") => penalties[side].filter((p) => p === true).length;
+
+  const handleShootPenalty = useCallback(() => {
+    if (penaltyFinished) return;
+
+    const isHomeKick = penaltyIndex % 2 === 0;
+    const side = isHomeKick ? "home" : "away";
+    const result = simulatePenaltyKick();
+
+    setPenalties((prev) => ({
+      ...prev,
+      [side]: [...prev[side], result],
+    }));
+    setPenaltyIndex((i) => i + 1);
+  }, [penaltyIndex, penaltyFinished]);
+
+  // Check if penalties are decided
+  useEffect(() => {
+    if (!showPenalties || penaltyFinished) return;
+
+    const homeKicks = penalties.home.length;
+    const awayKicks = penalties.away.length;
+    const homeScore = penaltyScore("home");
+    const awayScore = penaltyScore("away");
+    const maxRound = Math.max(homeKicks, awayKicks);
+
+    // Both have equal kicks and we're past 5 rounds each
+    if (homeKicks === awayKicks && homeKicks >= 5) {
+      if (homeScore !== awayScore) {
+        setPenaltyFinished(true);
+        return;
+      }
+    }
+
+    // During first 5: check if it's mathematically decided
+    if (homeKicks === awayKicks && homeKicks <= 5 && homeKicks >= 1) {
+      const remainingHome = Math.max(5 - homeKicks, 0);
+      const remainingAway = Math.max(5 - awayKicks, 0);
+      // Can't catch up
+      if (homeScore + remainingHome < awayScore) { setPenaltyFinished(true); return; }
+      if (awayScore + remainingAway < homeScore) { setPenaltyFinished(true); return; }
+    }
+  }, [penalties, showPenalties, penaltyFinished]);
+
+  const togglePenalty = (side: "home" | "away", index: number) => {
+    setPenalties((prev) => {
+      const arr = [...prev[side]];
+      if (arr[index] === true) arr[index] = false;
+      else arr[index] = true;
+      return { ...prev, [side]: arr };
+    });
+  };
+
+  const handleFinish = () => {
+    onSave({
+      ...match,
+      homeScore: regularHome,
+      awayScore: regularAway,
+      homeExtraTime: showExtraTime ? etHome : undefined,
+      awayExtraTime: showExtraTime ? etAway : undefined,
+      homePenalties: showPenalties ? penaltyScore("home") : undefined,
+      awayPenalties: showPenalties ? penaltyScore("away") : undefined,
+      played: true,
+    });
+  };
+
+  // Mini standings (only for non-knockout)
+  const miniStandings: (StandingRow & { position: number })[] = (() => {
+    if (isKnockout || !tournament || !allTeams) return [];
+    const all = calculateStandings(tournament.teamIds, tournament.matches, tournament.settings, allTeams);
+    const ids = [match.homeTeamId, match.awayTeamId];
+    return all.map((s, i) => ({ ...s, position: i + 1 })).filter((s) => ids.includes(s.teamId));
+  })();
+
+  const halfTabs: { key: HalfKey; label: string }[] = [
+    { key: "h1", label: "1ºT" },
+    { key: "h2", label: "2ºT" },
+    ...(showExtraTime ? [
+      { key: "et1" as HalfKey, label: "Prorr 1" },
+      { key: "et2" as HalfKey, label: "Prorr 2" },
+    ] : []),
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div
+        className="w-full max-w-2xl rounded-xl bg-card border border-border shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header - Teams */}
+        <div className="bg-secondary/50 border-b border-border px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                {homeTeam?.logo ? (
+                  <img src={homeTeam.logo} alt="" className="w-12 h-12 object-contain" />
+                ) : (
+                  <Shield className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <div>
+                <p className="font-display font-bold text-foreground text-sm">{homeTeam?.name || "—"}</p>
+                <p className="text-xs text-primary font-mono">{homeTeam?.rate.toFixed(2)}</p>
+              </div>
+            </div>
+            <span className="text-muted-foreground font-bold text-sm px-4 shrink-0">VS</span>
+            <div className="flex items-center gap-3 flex-1 justify-end text-right">
+              <div>
+                <p className="font-display font-bold text-foreground text-sm">{awayTeam?.name || "—"}</p>
+                <p className="text-xs text-primary font-mono">{awayTeam?.rate.toFixed(2)}</p>
+              </div>
+              <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                {awayTeam?.logo ? (
+                  <img src={awayTeam.logo} alt="" className="w-12 h-12 object-contain" />
+                ) : (
+                  <Shield className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Half Tabs */}
+        <div className="flex items-center justify-center gap-2 py-3 border-b border-border flex-wrap">
+          {halfTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => !showPenalties && setActiveHalf(tab.key)}
+              className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-colors ${
+                activeHalf === tab.key
+                  ? "border border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label} {scores[tab.key][0]}:{scores[tab.key][1]}
+            </button>
+          ))}
+          {showPenalties && (
+            <span className="px-3 py-1 rounded-md text-xs font-mono font-bold border border-primary text-primary">
+              PEN {penaltyScore("home")}:{penaltyScore("away")}
+            </span>
+          )}
+        </div>
+
+        {/* Score Controls (hidden during penalties) */}
+        {!showPenalties && (
+          <>
+            <div className="flex items-center justify-center gap-4 py-6 px-6">
+              <div className="flex flex-col items-center gap-1">
+                <button onClick={() => increment(0)} className="p-1 text-primary hover:text-primary/80 transition-colors">
+                  <ChevronUp className="w-8 h-8" strokeWidth={3} />
+                </button>
+                <button onClick={() => decrement(0)} className="p-1 text-destructive hover:text-destructive/80 transition-colors">
+                  <ChevronDown className="w-8 h-8" strokeWidth={3} />
+                </button>
+              </div>
+              <div className="w-28 h-28 rounded-xl bg-secondary border border-border flex items-center justify-center">
+                <span className="text-6xl font-bold text-foreground font-display">{currentHome}</span>
+              </div>
+              <div className="w-28 h-28 rounded-xl bg-secondary border border-border flex items-center justify-center">
+                <span className="text-6xl font-bold text-foreground font-display">{currentAway}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <button onClick={() => increment(1)} className="p-1 text-primary hover:text-primary/80 transition-colors">
+                  <ChevronUp className="w-8 h-8" strokeWidth={3} />
+                </button>
+                <button onClick={() => decrement(1)} className="p-1 text-destructive hover:text-destructive/80 transition-colors">
+                  <ChevronDown className="w-8 h-8" strokeWidth={3} />
+                </button>
+              </div>
+            </div>
+
+            {canSimulate && (
+              <div className="px-6 pb-4">
+                <button
+                  onClick={handleSimulate}
+                  className="w-full max-w-xs mx-auto block py-3 rounded-xl bg-primary/20 text-primary font-display font-bold text-lg hover:bg-primary/30 transition-colors"
+                >
+                  Simular {halfTabs.find((t) => t.key === activeHalf)?.label}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Penalties - One by One */}
+        {showPenalties && (
+          <div className="px-6 py-6 space-y-4">
+            <p className="text-sm font-display font-bold text-foreground text-center">Disputa de Pênaltis</p>
+
+            <div className="space-y-3">
+              {/* Home kicks */}
+              <div className="flex items-center gap-2 justify-center">
+                <span className="text-xs text-muted-foreground w-16 text-right truncate">{homeTeam?.abbreviation || homeTeam?.shortName}</span>
+                <div className="flex gap-1.5 min-w-[140px]">
+                  {penalties.home.map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => togglePenalty("home", i)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all text-xs font-bold ${
+                        p === true
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "bg-destructive border-destructive text-destructive-foreground"
+                      }`}
+                    >
+                      {p ? "✓" : "✗"}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-lg font-bold text-foreground w-8 text-center">{penaltyScore("home")}</span>
+              </div>
+
+              {/* Away kicks */}
+              <div className="flex items-center gap-2 justify-center">
+                <span className="text-xs text-muted-foreground w-16 text-right truncate">{awayTeam?.abbreviation || awayTeam?.shortName}</span>
+                <div className="flex gap-1.5 min-w-[140px]">
+                  {penalties.away.map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => togglePenalty("away", i)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all text-xs font-bold ${
+                        p === true
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "bg-destructive border-destructive text-destructive-foreground"
+                      }`}
+                    >
+                      {p ? "✓" : "✗"}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-lg font-bold text-foreground w-8 text-center">{penaltyScore("away")}</span>
+              </div>
+            </div>
+
+            {/* Shoot button */}
+            {!penaltyFinished && (
+              <div className="flex justify-center">
+                <button
+                  onClick={handleShootPenalty}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-display font-bold text-sm hover:bg-primary/90 transition-colors"
+                >
+                  <Play className="w-4 h-4" />
+                  Cobrar ({penaltyIndex % 2 === 0 ? homeTeam?.abbreviation || "Casa" : awayTeam?.abbreviation || "Fora"})
+                </button>
+              </div>
+            )}
+
+            {penaltyFinished && (
+              <p className="text-xs text-center text-primary font-bold">
+                {penaltyScore("home") > penaltyScore("away")
+                  ? `${homeTeam?.name || "Casa"} vence nos pênaltis!`
+                  : `${awayTeam?.name || "Fora"} vence nos pênaltis!`}
+              </p>
+            )}
+
+            <p className="text-[10px] text-muted-foreground text-center">Clique nas bolas para editar manualmente</p>
+          </div>
+        )}
+
+        {/* Mini Standings (only non-knockout) */}
+        {miniStandings.length > 0 && (
+          <div className="px-6 pb-4">
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-secondary/50 text-muted-foreground">
+                    <th className="py-1.5 px-2 text-left w-8">#</th>
+                    <th className="py-1.5 px-2 text-left">Time</th>
+                    <th className="py-1.5 px-2 text-center w-8">P</th>
+                    <th className="py-1.5 px-2 text-center w-8">J</th>
+                    <th className="py-1.5 px-2 text-center w-8">V</th>
+                    <th className="py-1.5 px-2 text-center w-8">E</th>
+                    <th className="py-1.5 px-2 text-center w-8">D</th>
+                    <th className="py-1.5 px-2 text-center w-8">GP</th>
+                    <th className="py-1.5 px-2 text-center w-8">GC</th>
+                    <th className="py-1.5 px-2 text-center w-8">SG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {miniStandings.map((row) => {
+                    const team = allTeams?.find((t) => t.id === row.teamId);
+                    return (
+                      <tr key={row.teamId} className="border-t border-border/50">
+                        <td className="py-1.5 px-2 text-muted-foreground">{row.position}</td>
+                        <td className="py-1.5 px-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                              {team?.logo ? (
+                                <img src={team.logo} alt="" className="w-5 h-5 object-contain" />
+                              ) : (
+                                <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <span className="text-foreground font-medium truncate">{team?.shortName || team?.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-1.5 px-2 text-center font-bold text-foreground">{row.points}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.played}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.wins}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.draws}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.losses}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.goalsFor}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.goalsAgainst}</td>
+                        <td className="py-1.5 px-2 text-center text-muted-foreground">{row.goalDifference}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
+          <button onClick={onCancel} className="text-destructive font-display font-bold text-sm hover:text-destructive/80 transition-colors">
+            Cancelar
+          </button>
+          <button className="text-foreground font-display font-bold text-sm hover:text-foreground/80 transition-colors">
+            Eventos
+          </button>
+          <button onClick={handleFinish} className="text-primary font-display font-bold text-sm hover:text-primary/80 transition-colors">
+            Finalizar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
