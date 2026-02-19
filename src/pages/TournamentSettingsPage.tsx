@@ -178,7 +178,14 @@ export default function TournamentSettingsPage() {
             <Label className="text-sm font-medium text-foreground">Classificação Grupos → Mata-Mata</Label>
             <div className="text-xs text-muted-foreground space-y-1">
               <p>
-                Com <strong className="text-foreground">{groupCount} grupos</strong> e {totalKnockoutTeams} vagas no mata-mata ({startStage.replace("1/", "1/").replace("1/64", "32-avos").replace("1/32", "16-avos").replace("1/16", "oitavas").replace("1/8", "quartas").replace("1/4", "semi").replace("1/2", "final")}):
+                Com <strong className="text-foreground">{groupCount} grupos</strong> e {totalKnockoutTeams} vagas no mata-mata ({
+                  startStage
+                    .replace("1/32", "pré-oitavas")
+                    .replace("1/16", "oitavas")
+                    .replace("1/8", "quartas")
+                    .replace("1/4", "semis")
+                    .replace("1/2", "final")
+                }):
               </p>
               <p>→ <strong className="text-foreground">{qualifiersPerGroup} classificados diretos</strong> por grupo ({qualifiersPerGroup * groupCount} times)</p>
               {remainderSlots > 0 && (
