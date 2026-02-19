@@ -1,4 +1,4 @@
-import { useState, useCallback, DragEvent } from "react";
+import { useState, useCallback, DragEvent, useMemo, memo } from "react";
 import { motion } from "framer-motion";
 import {
   Shield,
@@ -11,7 +11,6 @@ import {
   Folder,
   FolderOpen,
   ChevronRight,
-  X,
   GripVertical,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,7 +31,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-function TeamCard({
+// 1. Otimização com memo() no TeamCard
+const TeamCard = memo(function TeamCard({
   team,
   onEdit,
   onDuplicate,
@@ -117,12 +117,12 @@ function TeamCard({
       </div>
     </div>
   );
-}
+});
 
 interface FolderNodeProps {
   folder: TeamFolder;
-  allFolders: TeamFolder[];
-  teams: Team[];
+  foldersByParent: Map<string, TeamFolder[]>;
+  teamsByFolder: Map<string, Team[]>;
   openFolders: Set<string>;
   dragOverFolder: string | null;
   editingFolderId: string | null;
@@ -143,10 +143,11 @@ interface FolderNodeProps {
   depth?: number;
 }
 
-function FolderNode({
+// 2. Otimização com memo() no FolderNode para evitar re-renderizações em cascata
+const FolderNode = memo(function FolderNode({
   folder,
-  allFolders,
-  teams,
+  foldersByParent,
+  teamsByFolder,
   openFolders,
   dragOverFolder,
   editingFolderId,
@@ -167,8 +168,9 @@ function FolderNode({
   depth = 0,
 }: FolderNodeProps) {
   const isOpen = openFolders.has(folder.id);
-  const folderTeams = teams.filter((t) => t.folderId === folder.id);
-  const childFolders = allFolders.filter((f) => f.parentId === folder.id);
+  // 3. Pegando de um dicionário O(1) invés de rodar .filter() na array inteira O(N)
+  const folderTeams = teamsByFolder.get(folder.id) || [];
+  const childFolders = foldersByParent.get(folder.id) || [];
   const isDragOver = dragOverFolder === folder.id;
 
   return (
@@ -253,8 +255,8 @@ function FolderNode({
             <FolderNode
               key={child.id}
               folder={child}
-              allFolders={allFolders}
-              teams={teams}
+              foldersByParent={foldersByParent}
+              teamsByFolder={teamsByFolder}
               openFolders={openFolders}
               dragOverFolder={dragOverFolder}
               editingFolderId={editingFolderId}
@@ -295,7 +297,7 @@ function FolderNode({
       )}
     </div>
   );
-}
+});
 
 export default function TeamsPage() {
   const {
@@ -310,6 +312,7 @@ export default function TeamsPage() {
     moveTeamToFolder,
     moveFolderToFolder,
   } = useTournamentStore();
+
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
@@ -317,36 +320,66 @@ export default function TeamsPage() {
   const [editingFolderName, setEditingFolderName] = useState("");
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
-  const filteredTeams = teams.filter((t) => {
+  const filteredTeams = useMemo(() => {
     const q = search.toLowerCase();
-    return (
-      (t.name || "").toLowerCase().includes(q) ||
-      (t.shortName || "").toLowerCase().includes(q) ||
-      (t.abbreviation || "").toLowerCase().includes(q)
+    return teams.filter(
+      (t) =>
+        (t.name || "").toLowerCase().includes(q) ||
+        (t.shortName || "").toLowerCase().includes(q) ||
+        (t.abbreviation || "").toLowerCase().includes(q),
     );
-  });
+  }, [teams, search]);
 
-  const unfolderedTeams = filteredTeams.filter((t) => !t.folderId);
-  const rootFolders = folders.filter((f) => !f.parentId);
+  // 4. Agrupamento para uso otimizado de pastar e times
+  const teamsByFolder = useMemo(() => {
+    const map = new Map<string, Team[]>();
+    filteredTeams.forEach((t) => {
+      const key = t.folderId || "root";
+      const list = map.get(key) || [];
+      list.push(t);
+      map.set(key, list);
+    });
+    return map;
+  }, [filteredTeams]);
 
-  const toggleFolder = (id: string) => {
+  const foldersByParent = useMemo(() => {
+    const map = new Map<string, TeamFolder[]>();
+    folders.forEach((f) => {
+      const key = f.parentId || "root";
+      const list = map.get(key) || [];
+      list.push(f);
+      map.set(key, list);
+    });
+    return map;
+  }, [folders]);
+
+  const unfolderedTeams = teamsByFolder.get("root") || [];
+  const rootFolders = foldersByParent.get("root") || [];
+
+  const toggleFolder = useCallback((id: string) => {
     setOpenFolders((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const handleDelete = (id: string, name: string) => {
-    removeTeam(id);
-    toast.success(`"${name}" excluído`);
-  };
+  const handleDelete = useCallback(
+    (id: string, name: string) => {
+      removeTeam(id);
+      toast.success(`"${name}" excluído`);
+    },
+    [removeTeam],
+  );
 
-  const handleDuplicate = (e: React.MouseEvent, team: Team) => {
-    e.stopPropagation();
-    addTeam({ ...team, id: crypto.randomUUID(), name: `${team.name} (cópia)` });
-    toast.success(`"${team.name}" duplicado!`);
-  };
+  const handleDuplicate = useCallback(
+    (e: React.MouseEvent, team: Team) => {
+      e.stopPropagation();
+      addTeam({ ...team, id: crypto.randomUUID(), name: `${team.name} (cópia)` });
+      toast.success(`"${team.name}" duplicado!`);
+    },
+    [addTeam],
+  );
 
   const handleAddFolder = async () => {
     const id = await addFolder("Nova Pasta");
@@ -358,20 +391,26 @@ export default function TeamsPage() {
     }
   };
 
-  const handleRenameFolder = (id: string) => {
-    if (editingFolderId !== id) return; // prevent double-call from blur+enter
-    const trimmed = editingFolderName.trim();
-    if (trimmed) {
-      renameFolder(id, trimmed);
-      toast.success("Pasta renomeada!");
-    }
-    setEditingFolderId(null);
-  };
+  const handleRenameFolder = useCallback(
+    (id: string) => {
+      if (editingFolderId !== id) return;
+      const trimmed = editingFolderName.trim();
+      if (trimmed) {
+        renameFolder(id, trimmed);
+        toast.success("Pasta renomeada!");
+      }
+      setEditingFolderId(null);
+    },
+    [editingFolderId, editingFolderName, renameFolder],
+  );
 
-  const handleDeleteFolder = (id: string, name: string) => {
-    removeFolder(id);
-    toast.success(`Pasta "${name}" excluída`);
-  };
+  const handleDeleteFolder = useCallback(
+    (id: string, name: string) => {
+      removeFolder(id);
+      toast.success(`Pasta "${name}" excluída`);
+    },
+    [removeFolder],
+  );
 
   const handleDragOver = useCallback((e: DragEvent, folderId: string) => {
     e.preventDefault();
@@ -388,18 +427,38 @@ export default function TeamsPage() {
       e.preventDefault();
       e.stopPropagation();
       setDragOverFolder(null);
+
       const teamId = e.dataTransfer.getData("team-id");
       const sourceFolderId = e.dataTransfer.getData("folder-id");
+
       if (teamId) {
         moveTeamToFolder(teamId, folderId);
         toast.success("Time movido!");
       } else if (sourceFolderId && sourceFolderId !== folderId) {
+        // 5. Prevenção principal do LOOP INFINITO
+        let isDescendant = false;
+        let currentId: string | null = folderId;
+
+        while (currentId) {
+          if (currentId === sourceFolderId) {
+            isDescendant = true;
+            break;
+          }
+          const currentFolder = folders.find((f) => f.id === currentId);
+          currentId = currentFolder?.parentId || null;
+        }
+
+        if (isDescendant) {
+          toast.error("Você não pode mover uma pasta para dentro de si mesma ou de suas subpastas.");
+          return;
+        }
+
         moveFolderToFolder(sourceFolderId, folderId);
         toast.success("Pasta movida!");
         setOpenFolders((prev) => new Set(prev).add(folderId));
       }
     },
-    [moveTeamToFolder, moveFolderToFolder],
+    [moveTeamToFolder, moveFolderToFolder, folders],
   );
 
   const handleFolderDragStart = useCallback((e: DragEvent, folderId: string) => {
@@ -479,8 +538,8 @@ export default function TeamsPage() {
             <FolderNode
               key={folder.id}
               folder={folder}
-              allFolders={folders}
-              teams={filteredTeams}
+              foldersByParent={foldersByParent}
+              teamsByFolder={teamsByFolder}
               openFolders={openFolders}
               dragOverFolder={dragOverFolder}
               editingFolderId={editingFolderId}
