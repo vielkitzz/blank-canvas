@@ -14,7 +14,198 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      published_tournaments: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          share_token: string | null
+          tournament_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          share_token?: string | null
+          tournament_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          share_token?: string | null
+          tournament_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      team_folders: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          name: string | null
+          parent_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          name?: string | null
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      teams: {
+        Row: {
+          abbreviation: string | null
+          colors: string | null
+          created_at: string | null
+          folder_id: string | null
+          founding_year: string | null
+          id: string | null
+          logo: string | null
+          name: string | null
+          rate: string | null
+          short_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          abbreviation?: string | null
+          colors?: string | null
+          created_at?: string | null
+          folder_id?: string | null
+          founding_year?: string | null
+          id?: string | null
+          logo?: string | null
+          name?: string | null
+          rate?: string | null
+          short_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          abbreviation?: string | null
+          colors?: string | null
+          created_at?: string | null
+          folder_id?: string | null
+          founding_year?: string | null
+          id?: string | null
+          logo?: string | null
+          name?: string | null
+          rate?: string | null
+          short_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      tournament_collaborators: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string | null
+          published_tournament_id: string | null
+          role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          published_tournament_id?: string | null
+          role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          published_tournament_id?: string | null
+          role?: string | null
+        }
+        Relationships: []
+      }
+      tournaments: {
+        Row: {
+          created_at: string | null
+          finalized: string | null
+          format: string | null
+          groups_finalized: string | null
+          grupos_mata_mata_inicio: string | null
+          grupos_quantidade: string | null
+          grupos_turnos: string | null
+          id: string | null
+          liga_turnos: string | null
+          logo: string | null
+          mata_mata_inicio: string | null
+          matches: string | null
+          name: string | null
+          number_of_teams: string | null
+          seasons: string | null
+          settings: string | null
+          sport: string | null
+          suico_jogos_liga: string | null
+          suico_mata_mata_inicio: string | null
+          suico_playoff_vagas: string | null
+          team_ids: string | null
+          user_id: string | null
+          year: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          finalized?: string | null
+          format?: string | null
+          groups_finalized?: string | null
+          grupos_mata_mata_inicio?: string | null
+          grupos_quantidade?: string | null
+          grupos_turnos?: string | null
+          id?: string | null
+          liga_turnos?: string | null
+          logo?: string | null
+          mata_mata_inicio?: string | null
+          matches?: string | null
+          name?: string | null
+          number_of_teams?: string | null
+          seasons?: string | null
+          settings?: string | null
+          sport?: string | null
+          suico_jogos_liga?: string | null
+          suico_mata_mata_inicio?: string | null
+          suico_playoff_vagas?: string | null
+          team_ids?: string | null
+          user_id?: string | null
+          year?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          finalized?: string | null
+          format?: string | null
+          groups_finalized?: string | null
+          grupos_mata_mata_inicio?: string | null
+          grupos_quantidade?: string | null
+          grupos_turnos?: string | null
+          id?: string | null
+          liga_turnos?: string | null
+          logo?: string | null
+          mata_mata_inicio?: string | null
+          matches?: string | null
+          name?: string | null
+          number_of_teams?: string | null
+          seasons?: string | null
+          settings?: string | null
+          sport?: string | null
+          suico_jogos_liga?: string | null
+          suico_mata_mata_inicio?: string | null
+          suico_playoff_vagas?: string | null
+          team_ids?: string | null
+          user_id?: string | null
+          year?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

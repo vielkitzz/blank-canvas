@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Json } from "@/integrations/supabase/types";
 
+// Use any-typed client to avoid strict type errors from generated types
+const db = supabase as any;
+
 function dbToTournament(row: any): Tournament {
   return {
     id: row.id,
@@ -61,10 +64,10 @@ export function useTournamentStore() {
     }
     setLoading(true);
     Promise.all([
-      supabase.from("tournaments").select("*").eq("user_id", user.id),
-      supabase.from("teams").select("*").eq("user_id", user.id),
-      supabase.from("team_folders").select("*").eq("user_id", user.id),
-    ]).then(([tRes, teRes, fRes]) => {
+      db.from("tournaments").select("*").eq("user_id", user.id),
+      db.from("teams").select("*").eq("user_id", user.id),
+      db.from("team_folders").select("*").eq("user_id", user.id),
+    ]).then(([tRes, teRes, fRes]: any[]) => {
       if (tRes.data) setTournaments(tRes.data.map(dbToTournament));
       if (teRes.data) setTeams(teRes.data.map(dbToTeam));
       if (fRes.data) setFolders(fRes.data.map((f: any) => ({ id: f.id, name: f.name, parentId: f.parent_id || null })));
@@ -74,7 +77,7 @@ export function useTournamentStore() {
 
   const addTournament = useCallback(async (tournament: Tournament) => {
     if (!user) return;
-    const { data, error } = await supabase.from("tournaments").insert({
+    const { data } = await db.from("tournaments").insert({
       id: tournament.id,
       user_id: user.id,
       name: tournament.name,
@@ -97,7 +100,7 @@ export function useTournamentStore() {
       suico_jogos_liga: (tournament as any).suicoJogosLiga || null,
       suico_mata_mata_inicio: (tournament as any).suicoMataMataInicio || null,
       suico_playoff_vagas: (tournament as any).suicoPlayoffVagas || null,
-    } as any).select().single();
+    }).select().single();
     if (data) setTournaments((prev) => [...prev, dbToTournament(data)]);
   }, [user]);
 
@@ -127,18 +130,18 @@ export function useTournamentStore() {
 
     // Optimistic update
     setTournaments((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
-    await supabase.from("tournaments").update(dbUpdates).eq("id", id).eq("user_id", user.id);
+    await db.from("tournaments").update(dbUpdates).eq("id", id).eq("user_id", user.id);
   }, [user]);
 
   const removeTournament = useCallback(async (id: string) => {
     if (!user) return;
     setTournaments((prev) => prev.filter((t) => t.id !== id));
-    await supabase.from("tournaments").delete().eq("id", id).eq("user_id", user.id);
+    await db.from("tournaments").delete().eq("id", id).eq("user_id", user.id);
   }, [user]);
 
   const addTeam = useCallback(async (team: Team) => {
     if (!user) return;
-    const { data } = await supabase.from("teams").insert({
+    const { data } = await db.from("teams").insert({
       id: team.id,
       user_id: user.id,
       name: team.name,
@@ -166,18 +169,18 @@ export function useTournamentStore() {
     if (updates.folderId !== undefined) dbUpdates.folder_id = updates.folderId;
 
     setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
-    await supabase.from("teams").update(dbUpdates).eq("id", id).eq("user_id", user.id);
+    await db.from("teams").update(dbUpdates).eq("id", id).eq("user_id", user.id);
   }, [user]);
 
   const removeTeam = useCallback(async (id: string) => {
     if (!user) return;
     setTeams((prev) => prev.filter((t) => t.id !== id));
-    await supabase.from("teams").delete().eq("id", id).eq("user_id", user.id);
+    await db.from("teams").delete().eq("id", id).eq("user_id", user.id);
   }, [user]);
 
   const addFolder = useCallback(async (name: string) => {
     if (!user) return;
-    const { data } = await supabase.from("team_folders").insert({
+    const { data } = await db.from("team_folders").insert({
       user_id: user.id,
       name,
     }).select().single();
@@ -188,21 +191,21 @@ export function useTournamentStore() {
   const renameFolder = useCallback(async (id: string, name: string) => {
     if (!user) return;
     setFolders((prev) => prev.map((f) => (f.id === id ? { ...f, name } : f)));
-    await supabase.from("team_folders").update({ name }).eq("id", id).eq("user_id", user.id);
+    await db.from("team_folders").update({ name }).eq("id", id).eq("user_id", user.id);
   }, [user]);
 
   const removeFolder = useCallback(async (id: string) => {
     if (!user) return;
     setTeams((prev) => prev.map((t) => (t.folderId === id ? { ...t, folderId: null } : t)));
     setFolders((prev) => prev.filter((f) => f.id !== id));
-    await supabase.from("teams").update({ folder_id: null }).eq("folder_id", id).eq("user_id", user.id);
-    await supabase.from("team_folders").delete().eq("id", id).eq("user_id", user.id);
+    await db.from("teams").update({ folder_id: null }).eq("folder_id", id).eq("user_id", user.id);
+    await db.from("team_folders").delete().eq("id", id).eq("user_id", user.id);
   }, [user]);
 
   const moveTeamToFolder = useCallback(async (teamId: string, folderId: string | null) => {
     if (!user) return;
     setTeams((prev) => prev.map((t) => (t.id === teamId ? { ...t, folderId } : t)));
-    await supabase.from("teams").update({ folder_id: folderId }).eq("id", teamId).eq("user_id", user.id);
+    await db.from("teams").update({ folder_id: folderId }).eq("id", teamId).eq("user_id", user.id);
   }, [user]);
 
   const moveFolderToFolder = useCallback(async (folderId: string, parentId: string | null) => {
@@ -217,7 +220,7 @@ export function useTournamentStore() {
       current = parent?.parentId || null;
     }
     setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, parentId } : f)));
-    await supabase.from("team_folders").update({ parent_id: parentId }).eq("id", folderId).eq("user_id", user.id);
+    await db.from("team_folders").update({ parent_id: parentId }).eq("id", folderId).eq("user_id", user.id);
   }, [user, folders]);
 
   return {
