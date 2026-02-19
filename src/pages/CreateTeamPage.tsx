@@ -9,6 +9,14 @@ import { useTournamentStore } from "@/store/tournamentStore";
 import { toast } from "sonner";
 import { processImage, revokeImagePreview } from "@/lib/imageUtils";
 import { uploadLogo } from "@/lib/storageUtils";
+import { supabase } from "@/integrations/supabase/client"; // Importe o cliente do Supabase
+
+// Função auxiliar para extrair o caminho correto do arquivo na nuvem a partir da URL pública
+const extractFilePathFromUrl = (url: string, bucketName: string) => {
+  if (!url) return null;
+  const urlParts = url.split(`/public/${bucketName}/`);
+  return urlParts.length === 2 ? urlParts[1] : null;
+};
 
 export default function CreateTeamPage() {
   const navigate = useNavigate();
@@ -79,7 +87,7 @@ export default function CreateTeamPage() {
   const handleRemoveLogo = () => {
     if (previewUrl?.startsWith("blob:")) revokeImagePreview(previewUrl);
     setPreviewUrl(undefined);
-    setLogoUrl(undefined);
+    // NÃO limpe logoUrl aqui, precisamos dele no submit para saber o que deletar do Supabase
     setPendingBlob(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -95,17 +103,31 @@ export default function CreateTeamPage() {
     let finalLogoUrl = logoUrl; // default: keep existing URL
 
     try {
-      // Upload the new WebP blob if one is pending
+      // Cenário 1: Usuário escolheu uma imagem nova
       if (pendingBlob) {
         const teamId = editId || crypto.randomUUID();
-        const path = `teams/${teamId}.webp`;
+        const path = `teams/${teamId}_${Date.now()}.webp`; // Adicionei Date.now() para evitar problemas de cache do navegador
+
+        // Se tinha imagem antiga, deleta da nuvem antes de subir a nova
+        if (logoUrl) {
+          const oldPath = extractFilePathFromUrl(logoUrl, "logos"); // Confirme se o bucket chama "logos" ou mude aqui
+          if (oldPath) {
+            await supabase.storage.from("logos").remove([oldPath]);
+          }
+        }
+
         finalLogoUrl = await uploadLogo(pendingBlob.blob, path);
-        // Revoke the temporary Object URL now that upload is done
+
         if (previewUrl?.startsWith("blob:")) revokeImagePreview(previewUrl);
         setPreviewUrl(finalLogoUrl);
         setPendingBlob(null);
-      } else if (!previewUrl) {
-        // User removed logo
+      }
+      // Cenário 2: Usuário removeu a imagem e não escolheu nenhuma nova
+      else if (!previewUrl && logoUrl) {
+        const oldPath = extractFilePathFromUrl(logoUrl, "logos"); // Confirme se o bucket chama "logos" ou mude aqui
+        if (oldPath) {
+          await supabase.storage.from("logos").remove([oldPath]);
+        }
         finalLogoUrl = undefined;
       }
 
@@ -162,9 +184,7 @@ export default function CreateTeamPage() {
       </button>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h2 className="text-2xl font-display font-bold text-foreground">
-          {editId ? "Editar Time" : "Criar Time"}
-        </h2>
+        <h2 className="text-2xl font-display font-bold text-foreground">{editId ? "Editar Time" : "Criar Time"}</h2>
         <p className="text-sm text-muted-foreground mt-1 mb-6">
           {editId ? "Atualize as informações do time" : "Preencha as informações do time"}
         </p>
@@ -187,13 +207,7 @@ export default function CreateTeamPage() {
                   </div>
                 )}
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleLogoSelect}
-                className="hidden"
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoSelect} className="hidden" />
               <div className="flex flex-col gap-1">
                 {displayLogo && (
                   <button
@@ -204,11 +218,7 @@ export default function CreateTeamPage() {
                     Remover
                   </button>
                 )}
-                {pendingBlob && (
-                  <span className="text-[10px] text-muted-foreground">
-                    WebP • pronto para envio
-                  </span>
-                )}
+                {pendingBlob && <span className="text-[10px] text-muted-foreground">WebP • pronto para envio</span>}
               </div>
             </div>
           </div>
@@ -323,7 +333,11 @@ export default function CreateTeamPage() {
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Enviando...
               </span>
-            ) : editId ? "Salvar Alterações" : "Criar Time"}
+            ) : editId ? (
+              "Salvar Alterações"
+            ) : (
+              "Criar Time"
+            )}
           </Button>
         </form>
       </motion.div>
