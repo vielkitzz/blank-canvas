@@ -181,7 +181,7 @@ export default function TournamentDetailPage() {
   const handleConfirmQualifiers = (selectedTeamIds: string[]) => {
     const startStage = tournament.gruposMataMataInicio || "1/8";
     const stageTeamCounts: Record<string, number> = {
-      "1/64": 128, "1/32": 64, "1/16": 32, "1/8": 16, "1/4": 8, "1/2": 4,
+      "1/64": 64, "1/32": 32, "1/16": 16, "1/8": 8, "1/4": 4, "1/2": 2,
     };
     const totalKnockoutTeams = stageTeamCounts[startStage] || 16;
 
