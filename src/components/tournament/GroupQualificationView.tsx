@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { CheckCircle2, Circle, Shield, Trophy, Users } from "lucide-react";
-import { Shield, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StandingRow } from "@/lib/standings";
 import { cn } from "@/lib/utils";
@@ -109,7 +108,6 @@ export default function GroupQualificationView({
           </div>
         </div>
 
-      <div className="flex justify-end">
         <Button
           onClick={() => onConfirm(Array.from(selected))}
           disabled={!isReady || !allGroupMatchesPlayed || isReadonly}
@@ -154,7 +152,6 @@ export default function GroupQualificationView({
             >
               {/* Card header */}
               <div className="px-4 py-2.5 border-b border-border bg-secondary/40 flex items-center justify-between">
-              <div className="px-4 py-2.5 border-b border-border bg-secondary/40">
                 <h3 className="font-display font-bold text-sm text-foreground">
                   Grupo {String.fromCharCode(64 + groupNum)}
                 </h3>
@@ -170,21 +167,6 @@ export default function GroupQualificationView({
 
               {/* Team list */}
               <div className="divide-y divide-border/40">
-              <div className="overflow-x-auto">
-                <div className="min-w-[680px]">
-                  <div className="grid grid-cols-[30px_minmax(190px,1.8fr)_repeat(8,minmax(48px,1fr))] items-center gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border/40 bg-secondary/20">
-                    <span>#</span>
-                    <span>Time</span>
-                    <span className="text-center">PTS</span>
-                    <span className="text-center">J</span>
-                    <span className="text-center">V</span>
-                    <span className="text-center">E</span>
-                    <span className="text-center">D</span>
-                    <span className="text-center">GP</span>
-                    <span className="text-center">GC</span>
-                    <span className="text-center">SG</span>
-                  </div>
-
                 {groupStandings.map((row, idx) => {
                   const isSelected = selected.has(row.teamId);
                   const isEliminated = !isSelected;
@@ -196,7 +178,6 @@ export default function GroupQualificationView({
                       disabled={isReadonly || !allGroupMatchesPlayed}
                       className={cn(
                         "w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-all",
-                        "w-full grid grid-cols-[30px_minmax(190px,1.8fr)_repeat(8,minmax(48px,1fr))] items-center gap-2 px-4 py-2.5 text-left transition-all border-b border-border/40",
                         isSelected
                           ? "bg-primary/8 hover:bg-primary/12"
                           : "hover:bg-secondary/40",
@@ -205,7 +186,6 @@ export default function GroupQualificationView({
                     >
                       {/* Position */}
                       <span className="text-[11px] text-muted-foreground font-mono w-4 shrink-0 text-right">
-                      <span className="text-[11px] text-muted-foreground font-mono text-right">
                         {idx + 1}
                       </span>
 
@@ -235,22 +215,11 @@ export default function GroupQualificationView({
 
                       {/* Points + badge */}
                       <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                          {row.team?.logo ? (
-                            <img src={row.team.logo} alt="" className="w-5 h-5 object-contain" />
-                          ) : (
-                            <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-                          )}
-                        </span>
                         <span className={cn(
                           "text-xs font-bold tabular-nums",
                           isSelected ? "text-primary" : "text-muted-foreground"
-                          "text-xs font-medium truncate",
-                          isSelected ? "text-foreground" : "text-muted-foreground"
                         )}>
                           {row.points}
-                          {row.team?.shortName || row.team?.name || "—"}
                         </span>
                         {isSelected && (
                           <span className="text-[9px] font-bold uppercase tracking-wide text-primary bg-primary/15 px-1.5 py-0.5 rounded-full">
@@ -263,29 +232,9 @@ export default function GroupQualificationView({
                           </span>
                         )}
                       </div>
-                      </span>
-
-                      <span className={cn("text-xs font-bold tabular-nums text-center", isSelected ? "text-primary" : "text-muted-foreground")}>{row.points}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.played}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.wins}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.draws}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.losses}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.goalsFor}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.goalsAgainst}</span>
-                      <span className={cn(
-                        "text-xs font-semibold tabular-nums text-center",
-                        row.goalDifference > 0
-                          ? "text-emerald-400"
-                          : row.goalDifference < 0
-                          ? "text-red-400"
-                          : "text-muted-foreground"
-                      )}>
-                        {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-                      </span>
                     </button>
                   );
                 })}
-                </div>
 
                 {groupStandings.length === 0 && (
                   <div className="px-4 py-6 text-center text-xs text-muted-foreground">
