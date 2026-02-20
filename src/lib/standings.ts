@@ -21,6 +21,15 @@ export function calculateStandings(
 ): StandingRow[] {
   const map = new Map<string, StandingRow>();
 
+  // TRAVAS DE SEGURANÇA: Garante que o cálculo não quebre se 'settings' estiver vazio
+  const ptsWin = settings?.pointsWin ?? 3;
+  const ptsDraw = settings?.pointsDraw ?? 1;
+  const ptsLoss = settings?.pointsLoss ?? 0;
+  
+  const safeTiebreakers = Array.isArray(settings?.tiebreakers) 
+    ? settings.tiebreakers 
+    : ["Pontos", "Vitórias", "Saldo de Gols", "Gols Marcados"];
+
   for (const tid of teamIds) {
     map.set(tid, {
       teamId: tid,
@@ -52,18 +61,18 @@ export function calculateStandings(
     if (m.homeScore > m.awayScore) {
       home.wins++;
       away.losses++;
-      home.points += settings.pointsWin;
-      away.points += settings.pointsLoss;
+      home.points += ptsWin;
+      away.points += ptsLoss;
     } else if (m.homeScore < m.awayScore) {
       away.wins++;
       home.losses++;
-      away.points += settings.pointsWin;
-      home.points += settings.pointsLoss;
+      away.points += ptsWin;
+      home.points += ptsLoss;
     } else {
       home.draws++;
       away.draws++;
-      home.points += settings.pointsDraw;
-      away.points += settings.pointsDraw;
+      home.points += ptsDraw;
+      away.points += ptsDraw;
     }
   }
 
@@ -74,7 +83,8 @@ export function calculateStandings(
   const rows = Array.from(map.values());
 
   rows.sort((a, b) => {
-    for (const tb of settings.tiebreakers) {
+    // Usando a lista segura de desempate
+    for (const tb of safeTiebreakers) {
       let diff = 0;
       switch (tb) {
         case "Pontos":
