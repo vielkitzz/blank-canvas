@@ -37,7 +37,7 @@ export default function TournamentSettingsPage() {
     promotions: [],
     bestOfPosition: 3,
     bestOfQualifiers: 0,
-    knockoutLegMode: "home-away",
+    knockoutLegMode: "home-away" as const,
     finalSingleLeg: true,
     thirdPlaceMatch: false,
     awayGoalsRule: false,
