@@ -24,7 +24,6 @@ export default function GroupQualificationView({
 }: GroupQualificationViewProps) {
   const isReadonly = !!confirmedTeamIds && confirmedTeamIds.length > 0;
 
-  // Seed initial selection from already-confirmed IDs
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(confirmedTeamIds ?? [])
   );
@@ -42,21 +41,23 @@ export default function GroupQualificationView({
   const count = selected.size;
   const isReady = count === totalKnockoutTeams;
 
-  // Determine grid cols based on group count
   const gridCols =
     groupCount === 1
       ? "grid-cols-1"
       : groupCount === 2
       ? "grid-cols-1 sm:grid-cols-2"
       : groupCount <= 4
-      ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-2"
+      ? "grid-cols-1 sm:grid-cols-2"
       : groupCount <= 6
       ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
       : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-end">
+      <div className="flex justify-between items-center">
+        <span className="text-xs text-muted-foreground">
+          {count}/{totalKnockoutTeams} classificados
+        </span>
         <Button
           onClick={() => onConfirm(Array.from(selected))}
           disabled={!isReady || !allGroupMatchesPlayed || isReadonly}
@@ -84,94 +85,88 @@ export default function GroupQualificationView({
               className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
             >
               {/* Card header */}
-              <div className="px-4 py-2.5 border-b border-border bg-secondary/40">
+              <div className="px-3 py-2 border-b border-border bg-secondary/40">
                 <h3 className="font-display font-bold text-sm text-foreground">
                   Grupo {String.fromCharCode(64 + groupNum)}
                 </h3>
               </div>
 
-              {/* Team list */}
-              <div className="overflow-x-auto">
-                <div className="min-w-[680px]">
-                  <div className="grid grid-cols-[30px_minmax(190px,1.8fr)_repeat(8,minmax(48px,1fr))] items-center gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border/40 bg-secondary/20">
-                    <span>#</span>
-                    <span>Time</span>
-                    <span className="text-center">PTS</span>
-                    <span className="text-center">J</span>
-                    <span className="text-center">V</span>
-                    <span className="text-center">E</span>
-                    <span className="text-center">D</span>
-                    <span className="text-center">GP</span>
-                    <span className="text-center">GC</span>
-                    <span className="text-center">SG</span>
-                  </div>
+              {/* Compact table */}
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border/40 bg-secondary/20 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <th className="text-left py-1.5 pl-3 pr-1 w-5">#</th>
+                    <th className="text-left py-1.5 px-1">Time</th>
+                    <th className="text-center py-1.5 px-0.5 w-7">P</th>
+                    <th className="text-center py-1.5 px-0.5 w-7">J</th>
+                    <th className="text-center py-1.5 px-0.5 w-7">V</th>
+                    <th className="text-center py-1.5 px-0.5 w-7">E</th>
+                    <th className="text-center py-1.5 px-0.5 w-7">D</th>
+                    <th className="text-center py-1.5 px-0.5 w-7">SG</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupStandings.map((row, idx) => {
+                    const isSelected = selected.has(row.teamId);
 
-                {groupStandings.map((row, idx) => {
-                  const isSelected = selected.has(row.teamId);
-
-                  return (
-                    <button
-                      key={row.teamId}
-                      onClick={() => toggle(row.teamId)}
-                      disabled={isReadonly || !allGroupMatchesPlayed}
-                      className={cn(
-                        "w-full grid grid-cols-[30px_minmax(190px,1.8fr)_repeat(8,minmax(48px,1fr))] items-center gap-2 px-4 py-2.5 text-left transition-all border-b border-border/40",
-                        isSelected
-                          ? "bg-primary/8 hover:bg-primary/12"
-                          : "hover:bg-secondary/40",
-                        (isReadonly || !allGroupMatchesPlayed) && "cursor-default"
-                      )}
-                    >
-                      {/* Position */}
-                      <span className="text-[11px] text-muted-foreground font-mono text-right">
-                        {idx + 1}
-                      </span>
-
-                      {/* Name */}
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                          {row.team?.logo ? (
-                            <img src={row.team.logo} alt="" className="w-5 h-5 object-contain" />
-                          ) : (
-                            <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-                          )}
-                        </span>
-                        <span className={cn(
-                          "text-xs font-medium truncate",
-                          isSelected ? "text-foreground" : "text-muted-foreground"
+                    return (
+                      <tr
+                        key={row.teamId}
+                        onClick={() => toggle(row.teamId)}
+                        className={cn(
+                          "border-b border-border/30 transition-colors cursor-pointer",
+                          isSelected
+                            ? "bg-primary/8 hover:bg-primary/12"
+                            : "hover:bg-secondary/40",
+                          (isReadonly || !allGroupMatchesPlayed) && "cursor-default"
+                        )}
+                      >
+                        <td className="py-2 pl-3 pr-1 text-muted-foreground font-mono text-[10px]">
+                          {idx + 1}
+                        </td>
+                        <td className="py-2 px-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                              {row.team?.logo ? (
+                                <img src={row.team.logo} alt="" className="w-4 h-4 object-contain" />
+                              ) : (
+                                <Shield className="w-3 h-3 text-muted-foreground" />
+                              )}
+                            </div>
+                            <span className={cn(
+                              "font-medium truncate text-[11px]",
+                              isSelected ? "text-foreground" : "text-muted-foreground"
+                            )}>
+                              {row.team?.abbreviation || row.team?.shortName || row.team?.name || "—"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className={cn("text-center py-2 px-0.5 font-bold tabular-nums", isSelected ? "text-primary" : "text-foreground")}>{row.points}</td>
+                        <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.played}</td>
+                        <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.wins}</td>
+                        <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.draws}</td>
+                        <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.losses}</td>
+                        <td className={cn(
+                          "text-center py-2 px-0.5 font-semibold tabular-nums",
+                          row.goalDifference > 0
+                            ? "text-emerald-400"
+                            : row.goalDifference < 0
+                            ? "text-red-400"
+                            : "text-muted-foreground"
                         )}>
-                          {row.team?.shortName || row.team?.name || "—"}
-                        </span>
-                      </span>
+                          {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                      <span className={cn("text-xs font-bold tabular-nums text-center", isSelected ? "text-primary" : "text-muted-foreground")}>{row.points}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.played}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.wins}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.draws}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.losses}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.goalsFor}</span>
-                      <span className="text-xs tabular-nums text-center text-muted-foreground">{row.goalsAgainst}</span>
-                      <span className={cn(
-                        "text-xs font-semibold tabular-nums text-center",
-                        row.goalDifference > 0
-                          ? "text-emerald-400"
-                          : row.goalDifference < 0
-                          ? "text-red-400"
-                          : "text-muted-foreground"
-                      )}>
-                        {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-                      </span>
-                    </button>
-                  );
-                })}
+              {groupStandings.length === 0 && (
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  Nenhum time
                 </div>
-
-                {groupStandings.length === 0 && (
-                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                    Nenhum time
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           );
         })}
