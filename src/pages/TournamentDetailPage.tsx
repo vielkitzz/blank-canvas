@@ -688,7 +688,7 @@ export default function TournamentDetailPage() {
                   <GroupStandingsView
                     groupCount={pastGroupCount}
                     standingsByGroup={pastStandingsByGroup}
-                    promotions={tournament.settings.promotions}
+                    
                   />
                 </div>
               </TabsContent>
