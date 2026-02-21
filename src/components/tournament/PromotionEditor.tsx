@@ -3,12 +3,15 @@ import { Tournament, PromotionRule } from "@/types/tournament";
 import { Shield } from "lucide-react";
 import { StandingRow } from "@/lib/standings";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 interface PromotionEditorProps {
   tournament: Tournament;
   standings: StandingRow[];
   allTournaments: Tournament[];
   onUpdate: (promotions: PromotionRule[]) => void;
+  /** For grupos format: per-group standings */
+  standingsByGroup?: Record<number, StandingRow[]>;
 }
 
 const ZONE_COLORS = [
@@ -25,9 +28,11 @@ export default function PromotionEditor({
   standings,
   allTournaments,
   onUpdate,
+  standingsByGroup,
 }: PromotionEditorProps) {
   const promotions = tournament.settings.promotions || [];
   const otherTournaments = allTournaments.filter((t) => t.id !== tournament.id);
+  const isGrupos = tournament.format === "grupos" && standingsByGroup && Object.keys(standingsByGroup).length > 0;
 
   const getPromotion = (pos: number) => promotions.find((p) => p.position === pos);
 
@@ -72,77 +77,106 @@ export default function PromotionEditor({
     }
   };
 
-  return (
-    <div className="space-y-2">
-      <div className="rounded-lg border border-border overflow-hidden">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-secondary/50 text-muted-foreground">
-              <th className="py-1.5 px-2 text-left w-8">#</th>
-              <th className="py-1.5 px-2 text-left">Time</th>
-              <th className="py-1.5 px-2 text-left">Zona</th>
-              <th className="py-1.5 px-2 text-right w-16">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((row, i) => {
-              const pos = i + 1;
-              const promo = getPromotion(pos);
-              return (
-                <tr
-                  key={row.teamId}
-                  className="border-t border-border/50"
-                  style={promo ? { borderLeft: `3px solid ${promo.color}` } : undefined}
-                >
-                  <td className="py-2 px-2 text-muted-foreground font-mono">{pos}</td>
-                  <td className="py-2 px-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 flex items-center justify-center shrink-0">
-                        {row.team?.logo ? (
-                          <img src={row.team.logo} alt="" className="w-4 h-4 object-contain" />
-                        ) : (
-                          <Shield className="w-3 h-3 text-muted-foreground" />
-                        )}
-                      </div>
-                      <span className="text-foreground truncate">{row.team?.shortName || row.team?.name || "—"}</span>
+  const renderPositionTable = (rows: StandingRow[], label?: string) => (
+    <div className="rounded-lg border border-border overflow-hidden">
+      {label && (
+        <div className="px-3 py-1.5 bg-secondary/40 border-b border-border">
+          <span className="text-xs font-bold text-foreground">{label}</span>
+        </div>
+      )}
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-secondary/50 text-muted-foreground">
+            <th className="py-1.5 px-2 text-left w-8">#</th>
+            <th className="py-1.5 px-2 text-left">Time</th>
+            <th className="py-1.5 px-2 text-left">Zona</th>
+            <th className="py-1.5 px-2 text-right w-16">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => {
+            const pos = i + 1;
+            const promo = getPromotion(pos);
+            return (
+              <tr
+                key={row.teamId}
+                className="border-t border-border/50"
+                style={promo ? { borderLeft: `3px solid ${promo.color}` } : undefined}
+              >
+                <td className="py-2 px-2 text-muted-foreground font-mono">{pos}</td>
+                <td className="py-2 px-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 flex items-center justify-center shrink-0">
+                      {row.team?.logo ? (
+                        <img src={row.team.logo} alt="" className="w-4 h-4 object-contain" />
+                      ) : (
+                        <Shield className="w-3 h-3 text-muted-foreground" />
+                      )}
                     </div>
-                  </td>
-                  <td className="py-2 px-2">
-                    {promo && (
-                      <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                        style={{ backgroundColor: promo.color + "20", color: promo.color }}
-                      >
-                        <span
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: promo.color }}
-                        />
-                        {promo.type === "promotion" ? "Promoção" : promo.type === "relegation" ? "Rebaixamento" : "Playoff"}
-                        {promo.targetCompetition && ` → ${promo.targetCompetition}`}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 px-2 text-right">
-                    {promo ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(pos)} className="text-primary text-[10px] hover:underline">Editar</button>
-                        <button onClick={() => handleRemove(pos)} className="text-destructive text-[10px] hover:underline">×</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => openEdit(pos)} className="text-primary text-[10px] hover:underline">Definir</button>
-                    )}
-                  </td>
-                </tr>
+                    <span className="text-foreground truncate">{row.team?.shortName || row.team?.name || "—"}</span>
+                  </div>
+                </td>
+                <td className="py-2 px-2">
+                  {promo && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                      style={{ backgroundColor: promo.color + "20", color: promo.color }}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: promo.color }} />
+                      {promo.type === "promotion" ? "Promoção" : promo.type === "relegation" ? "Rebaixamento" : "Playoff"}
+                      {promo.targetCompetition && ` → ${promo.targetCompetition}`}
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 px-2 text-right">
+                  {promo ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(pos)} className="text-primary text-[10px] hover:underline">Editar</button>
+                      <button onClick={() => handleRemove(pos)} className="text-destructive text-[10px] hover:underline">×</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => openEdit(pos)} className="text-primary text-[10px] hover:underline">Definir</button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const groupCount = tournament.gruposQuantidade || 1;
+  const gridCols = groupCount <= 2 ? "grid-cols-1 sm:grid-cols-2" : groupCount <= 4 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3";
+
+  return (
+    <div className="space-y-3">
+      {isGrupos ? (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            Defina as zonas por posição dentro de cada grupo. A mesma regra de posição se aplica a todos os grupos.
+          </p>
+          <div className={cn("grid gap-3", gridCols)}>
+            {Array.from({ length: groupCount }, (_, i) => i + 1).map((g) => {
+              const groupStandings = standingsByGroup![g] || [];
+              return (
+                <div key={g}>
+                  {renderPositionTable(groupStandings, `Grupo ${String.fromCharCode(64 + g)}`)}
+                </div>
               );
             })}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </>
+      ) : (
+        renderPositionTable(standings)
+      )}
 
       {/* Inline editor */}
       {editingPos !== null && (
         <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-3">
-          <p className="text-xs font-medium text-foreground">Posição {editingPos}</p>
+          <p className="text-xs font-medium text-foreground">
+            Posição {editingPos} {isGrupos ? "(todos os grupos)" : ""}
+          </p>
           <div className="flex gap-2 flex-wrap">
             {(["promotion", "relegation", "playoff"] as const).map((t) => (
               <button

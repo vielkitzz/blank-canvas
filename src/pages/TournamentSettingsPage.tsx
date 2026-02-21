@@ -65,6 +65,19 @@ export default function TournamentSettingsPage() {
   const qualifiersPerGroup = Math.floor(qualifiersNeeded / groupCount);
   const remainderSlots = qualifiersNeeded - qualifiersPerGroup * groupCount;
 
+  // Compute per-group standings for grupos format
+  const standingsByGroup: Record<number, import("@/lib/standings").StandingRow[]> = {};
+  if (isGrupos) {
+    const groupMatches = (tournament.matches || []).filter((m) => m.stage === "group" || !m.stage);
+    for (let g = 1; g <= groupCount; g++) {
+      const gMatches = groupMatches.filter((m) => m.group === g);
+      const gTeamIds = [...new Set(gMatches.flatMap((m) => [m.homeTeamId, m.awayTeamId]))];
+      if (gTeamIds.length > 0) {
+        standingsByGroup[g] = calculateStandings(gTeamIds, gMatches, settings, teams);
+      }
+    }
+  }
+
   // How many "best of position X" slots are needed
   const currentBestOfQualifiers = settings.bestOfQualifiers ?? 0;
   const currentBestOfPosition = settings.bestOfPosition ?? 3;
@@ -168,6 +181,7 @@ export default function TournamentSettingsPage() {
               standings={standings}
               allTournaments={tournaments}
               onUpdate={(promotions) => updateTournament(tournament.id, { settings: { ...settings, promotions } })}
+              standingsByGroup={isGrupos ? standingsByGroup : undefined}
             />
           </div>
         )}
