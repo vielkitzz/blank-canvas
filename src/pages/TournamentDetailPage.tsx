@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -49,17 +49,6 @@ const formatLabels: Record<string, string> = {
   suico: "Sistema Suíço",
 };
 
-function compareRowsForBestOf(
-  a: import("@/lib/standings").StandingRow,
-  b: import("@/lib/standings").StandingRow
-) {
-  if (b.points !== a.points) return b.points - a.points;
-  if (b.wins !== a.wins) return b.wins - a.wins;
-  if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-  if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-  return a.teamId.localeCompare(b.teamId);
-}
-
 export default function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -71,104 +60,6 @@ export default function TournamentDetailPage() {
   const [newSeasonYear, setNewSeasonYear] = useState("");
 
   const tournament = tournaments.find((t) => t.id === id);
-
-  useEffect(() => {
-    if (loading || !tournament) return;
-    if (tournament.format !== "grupos") return;
-
-    const settings = tournament.settings;
-    const groupCount = tournament.gruposQuantidade || 1;
-    const groupMatches = (tournament.matches || []).filter((m) => m.stage === "group" || (!m.stage && m.group !== undefined));
-    const knockoutMatches = (tournament.matches || []).filter((m) => m.stage === "knockout" || (!m.stage && m.group === undefined));
-    const allGroupMatchesPlayed = groupMatches.length > 0 && groupMatches.every((m) => m.played);
-
-    if (!allGroupMatchesPlayed) return;
-    if (tournament.groupsFinalized) return;
-    if (knockoutMatches.length > 0) return;
-    if ((settings.qualifiedTeamIds?.length || 0) > 0) return;
-
-    const standingsByGroup: Record<number, import("@/lib/standings").StandingRow[]> = {};
-    for (let g = 1; g <= groupCount; g++) {
-      const gMatches = groupMatches.filter((m) => m.group === g);
-      const gTeamIds = [...new Set(gMatches.flatMap((m) => [m.homeTeamId, m.awayTeamId]))];
-      standingsByGroup[g] = calculateStandings(gTeamIds, gMatches, settings, teams);
-    }
-
-    const startStage = tournament.gruposMataMataInicio || "1/8";
-    const totalKnockoutTeams = STAGE_TEAM_COUNTS[startStage] || 16;
-    const directPerGroup = Math.floor(totalKnockoutTeams / groupCount);
-    const selected = new Set<string>();
-
-    for (let g = 1; g <= groupCount; g++) {
-      const rows = standingsByGroup[g] || [];
-      for (let i = 0; i < Math.min(directPerGroup, rows.length); i++) {
-        selected.add(rows[i].teamId);
-      }
-    }
-
-    let remaining = totalKnockoutTeams - selected.size;
-    if (remaining > 0) {
-      const bestOfPosition = settings.bestOfPosition ?? directPerGroup + 1;
-      const bestOfQualifiers = settings.bestOfQualifiers ?? remaining;
-      const bestOfCandidates: import("@/lib/standings").StandingRow[] = [];
-      for (let g = 1; g <= groupCount; g++) {
-        const row = (standingsByGroup[g] || [])[bestOfPosition - 1];
-        if (row && !selected.has(row.teamId)) bestOfCandidates.push(row);
-      }
-      bestOfCandidates.sort(compareRowsForBestOf);
-      for (const row of bestOfCandidates.slice(0, Math.min(remaining, bestOfQualifiers))) {
-        selected.add(row.teamId);
-      }
-    }
-
-    remaining = totalKnockoutTeams - selected.size;
-    if (remaining > 0) {
-      const fallbackCandidates = Object.values(standingsByGroup)
-        .flat()
-        .filter((row) => !selected.has(row.teamId))
-        .sort(compareRowsForBestOf);
-      for (const row of fallbackCandidates.slice(0, remaining)) {
-        selected.add(row.teamId);
-      }
-    }
-
-    const selectedTeamIds = Array.from(selected).slice(0, totalKnockoutTeams);
-    if (selectedTeamIds.length !== totalKnockoutTeams) return;
-
-    const teamGroupPos: Record<string, { group: number; pos: number }> = {};
-    for (let g = 1; g <= groupCount; g++) {
-      (standingsByGroup[g] || []).forEach((row, idx) => {
-        teamGroupPos[row.teamId] = { group: g, pos: idx };
-      });
-    }
-    const seededFinal = [...selectedTeamIds].sort((a, b) => {
-      const posA = teamGroupPos[a]?.pos ?? 99;
-      const posB = teamGroupPos[b]?.pos ?? 99;
-      if (posA !== posB) return posA - posB;
-      return (teamGroupPos[a]?.group ?? 0) - (teamGroupPos[b]?.group ?? 0);
-    });
-
-    const legMode = settings.knockoutLegMode || "single";
-    const newMatches: Match[] = [];
-    for (let i = 0; i < Math.floor(seededFinal.length / 2); i++) {
-      const home = seededFinal[i];
-      const away = seededFinal[seededFinal.length - 1 - i];
-      if (legMode === "home-away") {
-        const pairId = crypto.randomUUID();
-        newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: home, awayTeamId: away, homeScore: 0, awayScore: 0, played: false, stage: "knockout", leg: 1, pairId });
-        newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: away, awayTeamId: home, homeScore: 0, awayScore: 0, played: false, stage: "knockout", leg: 2, pairId });
-      } else {
-        newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: home, awayTeamId: away, homeScore: 0, awayScore: 0, played: false, stage: "knockout" });
-      }
-    }
-
-    updateTournament(tournament.id, {
-      matches: [...(tournament.matches || []), ...newMatches],
-      groupsFinalized: true,
-      settings: { ...settings, qualifiedTeamIds: selectedTeamIds },
-    });
-    toast.success(`Classificação automática concluída: ${selectedTeamIds.length} times no mata-mata.`);
-  }, [loading, tournament, teams, updateTournament]);
 
   if (loading) {
     return (
@@ -251,10 +142,10 @@ export default function TournamentDetailPage() {
 
   // For grupos format, separate group and knockout matches
   const groupMatches = isGrupos
-    ? (tournament.matches || []).filter((m) => m.stage === "group" || (!m.stage && m.group !== undefined))
+    ? (tournament.matches || []).filter((m) => m.stage === "group" || !m.stage)
     : tournament.matches || [];
   const knockoutMatches = isGrupos
-    ? (tournament.matches || []).filter((m) => m.stage === "knockout" || (!m.stage && m.group === undefined))
+    ? (tournament.matches || []).filter((m) => m.stage === "knockout")
     : [];
 
   // For grupos: compute standings per group
@@ -275,7 +166,6 @@ export default function TournamentDetailPage() {
 
   // Check if all group matches have been played
   const allGroupMatchesPlayed = isGrupos && groupMatches.length > 0 && groupMatches.every((m) => m.played);
-  const canAccessKnockoutTab = tournament.groupsFinalized || allGroupMatchesPlayed || knockoutMatches.length > 0;
 
   // Create a "group-only" tournament view for RoundsView
   const groupTournament = isGrupos
@@ -288,7 +178,7 @@ export default function TournamentDetailPage() {
     : tournament;
 
   // ─── Confirm manual qualifiers & generate knockout ───────────────────────
-  const handleConfirmQualifiers = (selectedTeamIds: string[], options?: { auto?: boolean }) => {
+  const handleConfirmQualifiers = (selectedTeamIds: string[]) => {
     const startStage = tournament.gruposMataMataInicio || "1/8";
     const totalKnockoutTeams = STAGE_TEAM_COUNTS[startStage] || 16;
 
@@ -333,11 +223,7 @@ export default function TournamentDetailPage() {
       groupsFinalized: true,
       settings: updatedSettings,
     });
-    if (options?.auto) {
-      toast.success(`Classificação automática concluída: ${selectedTeamIds.length} times no mata-mata.`);
-    } else {
-      toast.success(`${selectedTeamIds.length} times classificados! ${newMatches.length} jogos de mata-mata gerados.`);
-    }
+    toast.success(`${selectedTeamIds.length} times classificados! ${newMatches.length} jogos de mata-mata gerados.`);
   };
 
   const handleFinalizeSeason = () => {
@@ -938,7 +824,7 @@ export default function TournamentDetailPage() {
             <TabsTrigger value="rodadas" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
               Rodadas
             </TabsTrigger>
-            {canAccessKnockoutTab && (
+            {(tournament.groupsFinalized || allGroupMatchesPlayed) && (
               <TabsTrigger value="mata-mata" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
                 Mata-Mata
               </TabsTrigger>
@@ -990,7 +876,7 @@ export default function TournamentDetailPage() {
             </div>
           </TabsContent>
 
-          {canAccessKnockoutTab && (
+          {(tournament.groupsFinalized || allGroupMatchesPlayed) && (
             <TabsContent value="mata-mata">
               <div className="rounded-xl card-gradient border border-border shadow-card p-4">
                 {tournament.groupsFinalized ? (
