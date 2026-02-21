@@ -172,14 +172,13 @@ export default function TournamentSettingsPage() {
           </div>
         </div>
 
-        {/* Promotions */}
+        {/* Table zones */}
         {(tournament.format === "liga" || tournament.format === "grupos") && (
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Promoções / Rebaixamentos</Label>
+            <Label className="text-sm font-medium text-foreground">Zonas da Tabela</Label>
             <PromotionEditor
               tournament={tournament}
               standings={standings}
-              allTournaments={tournaments}
               onUpdate={(promotions) => updateTournament(tournament.id, { settings: { ...settings, promotions } })}
               standingsByGroup={isGrupos ? standingsByGroup : undefined}
             />

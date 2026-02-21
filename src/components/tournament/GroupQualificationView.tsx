@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Shield, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StandingRow } from "@/lib/standings";
@@ -27,6 +27,10 @@ export default function GroupQualificationView({
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(confirmedTeamIds ?? [])
   );
+
+  useEffect(() => {
+    setSelected(new Set(confirmedTeamIds ?? []));
+  }, [confirmedTeamIds]);
 
   const toggle = (teamId: string) => {
     if (isReadonly || !allGroupMatchesPlayed) return;

@@ -41,6 +41,7 @@ export default function StandingsTable({ standings, promotions = [], qualifyUnti
           {standings.map((row, i) => {
             const pos = i + 1;
             const promo = getPromotion(pos);
+            const zoneId = promo?.targetCompetition?.trim();
             const isEliminated = qualifyUntil !== undefined && pos > qualifyUntil;
             const showDivider = qualifyUntil !== undefined && pos === qualifyUntil + 1;
             return (
@@ -55,9 +56,7 @@ export default function StandingsTable({ standings, promotions = [], qualifyUnti
                 <tr
                   key={row.teamId}
                   className={`border-b border-border/50 transition-colors ${
-                    isEliminated
-                      ? "opacity-50 bg-destructive/5"
-                      : "hover:bg-secondary/30"
+                    isEliminated ? "opacity-50 bg-destructive/5" : "hover:bg-secondary/30"
                   }`}
                   style={promo ? { borderLeft: `3px solid ${promo.color}` } : undefined}
                 >
@@ -72,8 +71,17 @@ export default function StandingsTable({ standings, promotions = [], qualifyUnti
                         )}
                       </div>
                       <span className={`font-medium truncate ${isEliminated ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                        {row.team?.shortName || row.team?.name || "—"}
+                        {row.team?.shortName || row.team?.name || "-"}
                       </span>
+                      {zoneId && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0"
+                          style={{ backgroundColor: `${promo?.color}20`, color: promo?.color }}
+                        >
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: promo?.color }} />
+                          {zoneId}
+                        </span>
+                      )}
                       {isEliminated && (
                         <span className="text-[10px] text-destructive/70 font-medium shrink-0">Eliminado</span>
                       )}
