@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Match, Team, Tournament, KnockoutStage, STAGE_TEAM_COUNTS } from "@/types/tournament";
-import { Shield, Play, Zap, Trophy, Medal } from "lucide-react";
+import { Shield, Play, Zap, Trophy, Medal, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { simulateFullMatch } from "@/lib/simulation";
 import MatchPopup from "./MatchPopup";
+import BracketTeamEditor from "./BracketTeamEditor";
 
 interface BracketViewProps {
   tournament: Tournament;
@@ -68,6 +69,7 @@ export default function BracketView({
 }: BracketViewProps) {
   const matches = tournament.matches;
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [editingTeam, setEditingTeam] = useState<{ match: Match; side: "home" | "away" } | null>(null);
 
   const getTeam = (id: string) => teams.find((t) => t.id === id);
 
@@ -344,10 +346,10 @@ export default function BracketView({
         <button
           key={match.id}
           onClick={() => setSelectedMatch(match)}
-          className="w-[168px] rounded-lg bg-secondary/30 border border-border hover:border-primary/40 transition-all text-left overflow-hidden"
+          className="w-[180px] rounded-lg bg-secondary/30 border border-border hover:border-primary/40 transition-all text-left overflow-hidden"
         >
-          <TeamRow team={homeTeam} score={match.played ? match.homeScore + (match.homeExtraTime || 0) : undefined} isWinner={matchWinner === match.homeTeamId} borderBottom />
-          <TeamRow team={awayTeam} score={match.played ? match.awayScore + (match.awayExtraTime || 0) : undefined} isWinner={matchWinner === match.awayTeamId} />
+          <TeamRow team={homeTeam} score={match.played ? match.homeScore + (match.homeExtraTime || 0) : undefined} isWinner={matchWinner === match.homeTeamId} borderBottom onEditTeam={() => setEditingTeam({ match, side: "home" })} />
+          <TeamRow team={awayTeam} score={match.played ? match.awayScore + (match.awayExtraTime || 0) : undefined} isWinner={matchWinner === match.awayTeamId} onEditTeam={() => setEditingTeam({ match, side: "away" })} />
           {match.played && match.homePenalties !== undefined && (
             <div className="text-center py-0.5 bg-secondary/50">
               <span className="text-[9px] text-muted-foreground">Pên: {match.homePenalties}×{match.awayPenalties}</span>
@@ -360,7 +362,7 @@ export default function BracketView({
     // Home-away tie
     const agg = leg1.played && leg2?.played ? getAggregate(leg1, leg2) : null;
     return (
-      <div key={`${leg1.id}-pair`} className="w-[168px] rounded-lg border border-border overflow-hidden">
+      <div key={`${leg1.id}-pair`} className="w-[180px] rounded-lg border border-border overflow-hidden">
         {/* Aggregate display */}
         {agg && (
           <div className="flex items-center justify-between px-2 py-0.5 bg-secondary/50 border-b border-border/50">
@@ -378,8 +380,8 @@ export default function BracketView({
           <div className="flex items-center gap-1 px-2 py-1 border-b border-border/20">
             <span className="text-[8px] text-muted-foreground">Ida</span>
           </div>
-          <TeamRow team={homeTeam} score={leg1.played ? leg1.homeScore : undefined} isWinner={false} borderBottom compact />
-          <TeamRow team={awayTeam} score={leg1.played ? leg1.awayScore : undefined} isWinner={false} compact />
+          <TeamRow team={homeTeam} score={leg1.played ? leg1.homeScore : undefined} isWinner={false} borderBottom compact onEditTeam={() => setEditingTeam({ match: leg1, side: "home" })} />
+          <TeamRow team={awayTeam} score={leg1.played ? leg1.awayScore : undefined} isWinner={false} compact onEditTeam={() => setEditingTeam({ match: leg1, side: "away" })} />
         </button>
         {/* Leg 2 */}
         {leg2 && (
@@ -391,8 +393,8 @@ export default function BracketView({
               <span className="text-[8px] text-muted-foreground">Volta</span>
             </div>
             {/* In leg2, away team of leg1 is home */}
-            <TeamRow team={awayTeam} score={leg2.played ? leg2.homeScore : undefined} isWinner={false} borderBottom compact />
-            <TeamRow team={homeTeam} score={leg2.played ? leg2.awayScore : undefined} isWinner={false} compact />
+            <TeamRow team={awayTeam} score={leg2.played ? leg2.homeScore : undefined} isWinner={false} borderBottom compact onEditTeam={() => setEditingTeam({ match: leg2, side: "home" })} />
+            <TeamRow team={homeTeam} score={leg2.played ? leg2.awayScore : undefined} isWinner={false} compact onEditTeam={() => setEditingTeam({ match: leg2, side: "away" })} />
             {leg2.played && leg2.homePenalties !== undefined && (
               <div className="text-center py-0.5 bg-secondary/50">
                 <span className="text-[9px] text-muted-foreground">Pên: {leg2.homePenalties}×{leg2.awayPenalties}</span>
@@ -427,7 +429,7 @@ export default function BracketView({
             const isFinal = stageIdx === stages.length - 1;
 
             return (
-              <div key={stage} className="flex flex-col items-center" style={{ minWidth: 176 }}>
+              <div key={stage} className="flex flex-col items-center" style={{ minWidth: 188 }}>
                 {/* Stage header */}
                 <div className="mb-2 flex items-center gap-1.5">
                   <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
@@ -462,7 +464,7 @@ export default function BracketView({
                 {/* Match cards */}
                 <div className="flex flex-col gap-2 justify-center flex-1">
                   {pairs.length === 0 ? (
-                    <div className="w-[168px] p-3 rounded-lg border border-dashed border-border bg-secondary/20 text-center">
+                    <div className="w-[180px] p-3 rounded-lg border border-dashed border-border bg-secondary/20 text-center">
                       <span className="text-[10px] text-muted-foreground">Aguardando</span>
                     </div>
                   ) : (
@@ -531,10 +533,10 @@ export default function BracketView({
                 <button
                   key={match.id}
                   onClick={() => setSelectedMatch(match)}
-                  className="w-[168px] rounded-lg bg-secondary/30 border border-warning/30 hover:border-warning/60 transition-all text-left overflow-hidden"
+                  className="w-[180px] rounded-lg bg-secondary/30 border border-warning/30 hover:border-warning/60 transition-all text-left overflow-hidden"
                 >
-                  <TeamRow team={home} score={match.played ? match.homeScore : undefined} isWinner={w === match.homeTeamId} borderBottom />
-                  <TeamRow team={away} score={match.played ? match.awayScore : undefined} isWinner={w === match.awayTeamId} />
+                  <TeamRow team={home} score={match.played ? match.homeScore : undefined} isWinner={w === match.homeTeamId} borderBottom onEditTeam={() => setEditingTeam({ match, side: "home" })} />
+                  <TeamRow team={away} score={match.played ? match.awayScore : undefined} isWinner={w === match.awayTeamId} onEditTeam={() => setEditingTeam({ match, side: "away" })} />
                 </button>
               );
             })}
@@ -588,6 +590,19 @@ export default function BracketView({
           onCancel={() => setSelectedMatch(null)}
         />
       )}
+
+      {/* Bracket Team Editor */}
+      {editingTeam && (
+        <BracketTeamEditor
+          match={editingTeam.match}
+          allTeams={teams}
+          side={editingTeam.side}
+          onUpdate={(updated) => {
+            onUpdateMatch(updated);
+          }}
+          onClose={() => setEditingTeam(null)}
+        />
+      )}
     </div>
   );
 }
@@ -598,16 +613,27 @@ function TeamRow({
   isWinner,
   borderBottom,
   compact,
+  onEditTeam,
 }: {
   team?: Team;
   score?: number;
   isWinner: boolean;
   borderBottom?: boolean;
   compact?: boolean;
+  onEditTeam?: () => void;
 }) {
   const py = compact ? "py-1" : "py-1.5";
   return (
     <div className={`flex items-center gap-1.5 px-2 ${py} ${borderBottom ? "border-b border-border/40" : ""} ${isWinner ? "bg-primary/10" : ""}`}>
+      {onEditTeam && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEditTeam(); }}
+          className="p-0.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors shrink-0"
+          title="Editar time"
+        >
+          <UserPlus className="w-2.5 h-2.5" />
+        </button>
+      )}
       <div className="w-4 h-4 flex items-center justify-center shrink-0">
         {team?.logo ? (
           <img src={team.logo} alt="" className="w-4 h-4 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />

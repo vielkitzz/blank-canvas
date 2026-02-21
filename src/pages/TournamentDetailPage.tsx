@@ -355,7 +355,7 @@ export default function TournamentDetailPage() {
       const allMatches: Match[] = [];
       for (let g = 0; g < groupCount; g++) {
         if (groups[g].length < 2) continue;
-        const groupMatches = generateRoundRobin(tournament.id, groups[g], turnos as 1 | 2);
+        const groupMatches = generateRoundRobin(tournament.id, groups[g], turnos as 1 | 2 | 3 | 4);
         const tagged = groupMatches.map((m) => ({
           ...m,
           group: g + 1,
@@ -830,7 +830,7 @@ export default function TournamentDetailPage() {
             <TabsTrigger value="rodadas" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
               Rodadas
             </TabsTrigger>
-            {tournament.groupsFinalized && (
+            {(tournament.groupsFinalized || allGroupMatchesPlayed) && (
               <TabsTrigger value="mata-mata" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
                 Mata-Mata
               </TabsTrigger>
@@ -885,38 +885,54 @@ export default function TournamentDetailPage() {
             </div>
           </TabsContent>
 
-          {tournament.groupsFinalized && (
+          {(tournament.groupsFinalized || allGroupMatchesPlayed) && (
             <TabsContent value="mata-mata">
               <div className="rounded-xl card-gradient border border-border shadow-card p-4">
-                <BracketView
-                  tournament={knockoutTournament}
-                  teams={teams}
-                  onUpdateMatch={(updated: Match) => {
-                    const updatedWithStage = { ...updated, stage: "knockout" as const };
-                    const newMatches = (tournament.matches || []).map((m) =>
-                      m.id === updatedWithStage.id ? updatedWithStage : m
-                    );
-                    updateTournament(tournament.id, { matches: newMatches });
-                    toast.success("Resultado registrado!");
-                  }}
-                  onBatchUpdateMatches={(updatedMatches: Match[]) => {
-                    const tagged = updatedMatches.map((m) => ({ ...m, stage: "knockout" as const }));
-                    const existingIds = new Set((tournament.matches || []).map((m) => m.id));
-                    const updates = tagged.filter((m) => existingIds.has(m.id));
-                    const additions = tagged.filter((m) => !existingIds.has(m.id));
-                    const newMatches = [
-                      ...(tournament.matches || []).map((m) => {
-                        const upd = updates.find((u) => u.id === m.id);
-                        return upd || m;
-                      }),
-                      ...additions,
-                    ];
-                    updateTournament(tournament.id, { matches: newMatches });
-                    toast.success("Chaveamento atualizado!");
-                  }}
-                  onGenerateBracket={() => {}} // knockout already generated on confirm
-                  onFinalize={handleFinalizeSeason}
-                />
+                {tournament.groupsFinalized ? (
+                  <BracketView
+                    tournament={knockoutTournament}
+                    teams={teams}
+                    onUpdateMatch={(updated: Match) => {
+                      const updatedWithStage = { ...updated, stage: "knockout" as const };
+                      const newMatches = (tournament.matches || []).map((m) =>
+                        m.id === updatedWithStage.id ? updatedWithStage : m
+                      );
+                      updateTournament(tournament.id, { matches: newMatches });
+                      toast.success("Resultado registrado!");
+                    }}
+                    onBatchUpdateMatches={(updatedMatches: Match[]) => {
+                      const tagged = updatedMatches.map((m) => ({ ...m, stage: "knockout" as const }));
+                      const existingIds = new Set((tournament.matches || []).map((m) => m.id));
+                      const updates = tagged.filter((m) => existingIds.has(m.id));
+                      const additions = tagged.filter((m) => !existingIds.has(m.id));
+                      const newMatches = [
+                        ...(tournament.matches || []).map((m) => {
+                          const upd = updates.find((u) => u.id === m.id);
+                          return upd || m;
+                        }),
+                        ...additions,
+                      ];
+                      updateTournament(tournament.id, { matches: newMatches });
+                      toast.success("Chaveamento atualizado!");
+                    }}
+                    onGenerateBracket={() => {}}
+                    onFinalize={handleFinalizeSeason}
+                  />
+                ) : (
+                  <GroupQualificationView
+                    groupCount={groupCount}
+                    standingsByGroup={standingsByGroup}
+                    totalKnockoutTeams={(() => {
+                      const stageTeamCounts: Record<string, number> = {
+                        "1/64": 128, "1/32": 64, "1/16": 32, "1/8": 16, "1/4": 8, "1/2": 4,
+                      };
+                      return stageTeamCounts[tournament.gruposMataMataInicio || "1/8"] || 16;
+                    })()}
+                    allGroupMatchesPlayed={allGroupMatchesPlayed}
+                    confirmedTeamIds={tournament.settings.qualifiedTeamIds}
+                    onConfirm={handleConfirmQualifiers}
+                  />
+                )}
               </div>
             </TabsContent>
           )}

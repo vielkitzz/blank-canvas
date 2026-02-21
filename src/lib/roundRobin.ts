@@ -7,7 +7,7 @@ import { Match } from "@/types/tournament";
 export function generateRoundRobin(
   tournamentId: string,
   teamIds: string[],
-  turnos: 1 | 2 = 1
+  turnos: 1 | 2 | 3 | 4 = 1
 ): Match[] {
   const ids = [...teamIds];
   // If odd number of teams, add a "bye" placeholder
@@ -17,7 +17,7 @@ export function generateRoundRobin(
   const n = ids.length;
   const totalRounds = n - 1;
   const matchesPerRound = n / 2;
-  const matches: Match[] = [];
+  const firstLegMatches: Match[] = [];
 
   // Circle method: fix first team, rotate the rest
   const fixed = ids[0];
@@ -33,7 +33,7 @@ export function generateRoundRobin(
 
       if (home === "__BYE__" || away === "__BYE__") continue;
 
-      matches.push({
+      firstLegMatches.push({
         id: crypto.randomUUID(),
         tournamentId,
         round,
@@ -49,16 +49,21 @@ export function generateRoundRobin(
     rotating.unshift(rotating.pop()!);
   }
 
-  if (turnos === 2) {
-    const secondLeg = matches.map((m) => ({
+  if (turnos === 1) return firstLegMatches;
+
+  // Build all additional turnos
+  const allMatches = [...firstLegMatches];
+  for (let t = 2; t <= turnos; t++) {
+    const swap = t % 2 === 0; // even turnos swap home/away
+    const extraLeg = firstLegMatches.map((m) => ({
       ...m,
       id: crypto.randomUUID(),
-      round: m.round + totalRounds,
-      homeTeamId: m.awayTeamId,
-      awayTeamId: m.homeTeamId,
+      round: m.round + totalRounds * (t - 1),
+      homeTeamId: swap ? m.awayTeamId : m.homeTeamId,
+      awayTeamId: swap ? m.homeTeamId : m.awayTeamId,
     }));
-    return [...matches, ...secondLeg];
+    allMatches.push(...extraLeg);
   }
 
-  return matches;
+  return allMatches;
 }
