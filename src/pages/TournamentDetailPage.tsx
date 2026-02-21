@@ -32,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Match, SeasonRecord } from "@/types/tournament";
+import { Match, SeasonRecord, STAGE_TEAM_COUNTS } from "@/types/tournament";
 import { generateRoundRobin } from "@/lib/roundRobin";
 import { calculateStandings } from "@/lib/standings";
 import StandingsTable from "@/components/tournament/StandingsTable";
@@ -180,10 +180,7 @@ export default function TournamentDetailPage() {
   // ─── Confirm manual qualifiers & generate knockout ───────────────────────
   const handleConfirmQualifiers = (selectedTeamIds: string[]) => {
     const startStage = tournament.gruposMataMataInicio || "1/8";
-    const stageTeamCounts: Record<string, number> = {
-      "1/64": 64, "1/32": 32, "1/16": 16, "1/8": 8, "1/4": 4, "1/2": 2,
-    };
-    const totalKnockoutTeams = stageTeamCounts[startStage] || 16;
+    const totalKnockoutTeams = STAGE_TEAM_COUNTS[startStage] || 16;
 
     if (selectedTeamIds.length !== totalKnockoutTeams) {
       toast.error(`Selecione exatamente ${totalKnockoutTeams} times.`);
@@ -369,10 +366,7 @@ export default function TournamentDetailPage() {
       const teamIds = [...tournament.teamIds];
       // Validate power-of-2 count
       const startStage = tournament.mataMataInicio || "1/8";
-      const stageTeamCounts: Record<string, number> = {
-        "1/64": 128, "1/32": 64, "1/16": 32, "1/8": 16, "1/4": 8, "1/2": 4,
-      };
-      const expectedTeams = stageTeamCounts[startStage] || 16;
+      const expectedTeams = STAGE_TEAM_COUNTS[startStage] || 16;
       if (teamIds.length !== expectedTeams) {
         toast.error(`A fase ${startStage} exige exatamente ${expectedTeams} times. Você tem ${teamIds.length}.`);
         return;
@@ -846,10 +840,7 @@ export default function TournamentDetailPage() {
                 groupCount={groupCount}
                 standingsByGroup={standingsByGroup}
                 totalKnockoutTeams={(() => {
-                  const stageTeamCounts: Record<string, number> = {
-                    "1/64": 128, "1/32": 64, "1/16": 32, "1/8": 16, "1/4": 8, "1/2": 4,
-                  };
-                  return stageTeamCounts[tournament.gruposMataMataInicio || "1/8"] || 16;
+                  return STAGE_TEAM_COUNTS[tournament.gruposMataMataInicio || "1/8"] || 16;
                 })()}
                 allGroupMatchesPlayed={allGroupMatchesPlayed}
                 confirmedTeamIds={tournament.settings.qualifiedTeamIds}
@@ -923,10 +914,7 @@ export default function TournamentDetailPage() {
                     groupCount={groupCount}
                     standingsByGroup={standingsByGroup}
                     totalKnockoutTeams={(() => {
-                      const stageTeamCounts: Record<string, number> = {
-                        "1/64": 128, "1/32": 64, "1/16": 32, "1/8": 16, "1/4": 8, "1/2": 4,
-                      };
-                      return stageTeamCounts[tournament.gruposMataMataInicio || "1/8"] || 16;
+                      return STAGE_TEAM_COUNTS[tournament.gruposMataMataInicio || "1/8"] || 16;
                     })()}
                     allGroupMatchesPlayed={allGroupMatchesPlayed}
                     confirmedTeamIds={tournament.settings.qualifiedTeamIds}

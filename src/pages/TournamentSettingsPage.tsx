@@ -194,10 +194,11 @@ export default function TournamentSettingsPage() {
               <p>
                 Com <strong className="text-foreground">{groupCount} grupos</strong> e {totalKnockoutTeams} vagas no mata-mata ({
                   startStage
-                    .replace("1/32", "pré-oitavas")
-                    .replace("1/16", "oitavas")
-                    .replace("1/8", "quartas")
-                    .replace("1/4", "semis")
+                    .replace("1/64", "32-avos de final")
+                    .replace("1/32", "16-avos de final")
+                    .replace("1/16", "oitavas de final")
+                    .replace("1/8", "quartas de final")
+                    .replace("1/4", "semifinal")
                     .replace("1/2", "final")
                 }):
               </p>

@@ -16,11 +16,11 @@ interface BracketViewProps {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  "1/64": "32-avos",
-  "1/32": "16-avos",
-  "1/16": "Oitavas",
-  "1/8": "Quartas",
-  "1/4": "Semi",
+  "1/64": "32-avos de Final",
+  "1/32": "16-avos de Final",
+  "1/16": "Oitavas de Final",
+  "1/8": "Quartas de Final",
+  "1/4": "Semifinal",
   "1/2": "Final",
 };
 
