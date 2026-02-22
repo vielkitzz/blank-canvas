@@ -409,22 +409,18 @@ export default function TournamentDetailPage() {
 
       const legMode = tournament.settings.knockoutLegMode || "single";
       const newMatches: Match[] = [];
-      const isFinalOnly = paddedIds.length === 2;
-      const useHomeAway = legMode === "home-away" && (!isFinalOnly || !tournament.settings.finalSingleLeg);
-
       for (let i = 0; i < paddedIds.length; i += 2) {
         const homeId = paddedIds[i];
         const awayId = paddedIds[i + 1];
         if (!homeId && !awayId) continue;
-        
-        const isBye = !homeId || !awayId;
-        if (useHomeAway && !isBye) {
+        if (legMode === "home-away" && homeId && awayId) {
           const pairId = crypto.randomUUID();
           newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: homeId, awayTeamId: awayId, homeScore: 0, awayScore: 0, played: false, leg: 1, pairId, stage: "knockout" });
           newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: awayId, awayTeamId: homeId, homeScore: 0, awayScore: 0, played: false, leg: 2, pairId, stage: "knockout" });
         } else {
           const matchHomeId = homeId || awayId!;
           const matchAwayId = homeId && awayId ? awayId : "";
+          const isBye = !homeId || !awayId;
           newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: matchHomeId, awayTeamId: matchAwayId, homeScore: isBye ? 1 : 0, awayScore: 0, played: isBye, stage: "knockout" });
         }
       }
@@ -684,8 +680,8 @@ export default function TournamentDetailPage() {
         {(isMataMata || isGrupos) && (
           <TabsContent value="bracket" className="mt-0 outline-none">
             <div className="space-y-6">
-              {isGrupos && (
-                <div className={cn("space-y-4", tournament.groupsFinalized && "hidden")}>
+              {isGrupos && !tournament.groupsFinalized && (
+                <div className="space-y-4">
                   <div className="flex items-center gap-2 px-1">
                     <Trophy className="w-5 h-5 text-primary" />
                     <h2 className="text-lg font-display font-bold text-foreground">Definir Classificados</h2>
