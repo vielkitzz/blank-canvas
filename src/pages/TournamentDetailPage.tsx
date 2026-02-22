@@ -50,7 +50,7 @@ const formatLabels: Record<string, string> = {
 export default function TournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { tournaments, teams, updateTournament, deleteTournament } = useTournamentStore();
+  const { tournaments, teams, updateTournament, removeTournament } = useTournamentStore();
   const tournament = tournaments.find((t) => t.id === id);
 
   const [activeTab, setActiveTab] = useState("standings");
@@ -76,6 +76,13 @@ export default function TournamentDetailPage() {
   const seasonData = isViewingPastSeason
     ? tournament.seasons?.find((s) => s.year === viewingYear)
     : null;
+
+  // Map season standings to StandingRow[] (adding missing fields)
+  const seasonStandings: import("@/lib/standings").StandingRow[] = (seasonData?.standings || []).map((s) => ({
+    ...s,
+    played: s.wins + s.draws + s.losses,
+    goalDifference: s.goalsFor - s.goalsAgainst,
+  }));
 
   const isLiga = tournament.format === "liga";
   const isMataMata = tournament.format === "mata-mata";
@@ -621,7 +628,7 @@ export default function TournamentDetailPage() {
                     </div>
                     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                       <StandingsTable
-                        standings={isViewingPastSeason ? (seasonData?.standings || []) : (standingsByGroup[groupNum] || [])}
+                        standings={isViewingPastSeason ? seasonStandings : (standingsByGroup[groupNum] || [])}
                         promotions={tournament.settings.promotions}
                         qualifyUntil={qualifiersPerGroup}
                       />
@@ -634,7 +641,7 @@ export default function TournamentDetailPage() {
             <div className="space-y-4">
               <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
                 <StandingsTable
-                  standings={isViewingPastSeason ? (seasonData?.standings || []) : standings}
+                  standings={isViewingPastSeason ? seasonStandings : standings}
                   promotions={tournament.settings.promotions}
                 />
               </div>
