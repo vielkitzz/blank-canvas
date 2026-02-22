@@ -79,29 +79,32 @@ export default function GroupQualificationView({
 
   return (
     <div className="space-y-5">
-      <div className="flex justify-between items-center">
-        <span className="text-xs text-muted-foreground">
-          {count}/{totalKnockoutTeams} classificados
-        </span>
-        <Button
-          onClick={() => onConfirm(Array.from(selected))}
-          disabled={!isReady || !allGroupMatchesPlayed || isReadonly}
-          size="sm"
-          className={cn(
-            "gap-2 shrink-0",
-            isReadonly
-              ? "bg-primary/20 text-primary cursor-default"
-              : "bg-primary text-primary-foreground"
-          )}
-        >
-          <Trophy className="w-4 h-4" />
-          {isReadonly ? "Classificados Confirmados" : "Confirmar e Gerar Mata-Mata"}
-        </Button>
-      </div>
+      {!isReadonly && (
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-muted-foreground">
+            {count}/{totalKnockoutTeams} classificados
+          </span>
+          <Button
+            onClick={() => onConfirm(Array.from(selected))}
+            disabled={!isReady || !allGroupMatchesPlayed || isReadonly}
+            size="sm"
+            className={cn(
+              "gap-2 shrink-0",
+              isReadonly
+                ? "bg-primary/20 text-primary cursor-default"
+                : "bg-primary text-primary-foreground"
+            )}
+          >
+            <Trophy className="w-4 h-4" />
+            {isReadonly ? "Classificados Confirmados" : "Confirmar e Gerar Mata-Mata"}
+          </Button>
+        </div>
+      )}
 
       {/* ── Group Cards Grid ── */}
-      <div className={cn("grid gap-4", gridCols)}>
-        {Array.from({ length: groupCount }, (_, i) => i + 1).map((groupNum) => {
+      {!isReadonly && (
+        <div className={cn("grid gap-4", gridCols)}>
+          {Array.from({ length: groupCount }, (_, i) => i + 1).map((groupNum) => {
           const groupStandings = standingsByGroup[groupNum] || [];
 
           return (
@@ -186,9 +189,10 @@ export default function GroupQualificationView({
                 </div>
               )}
             </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
