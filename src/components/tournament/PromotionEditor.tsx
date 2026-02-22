@@ -32,7 +32,8 @@ export default function PromotionEditor({
 }: PromotionEditorProps) {
   const promotions = tournament.settings.promotions || [];
   const otherTournaments = allTournaments.filter((t) => t.id !== tournament.id);
-  const isGrupos = tournament.format === "grupos" && standingsByGroup && Object.keys(standingsByGroup).length > 0;
+  const isGrupos = tournament.format === "grupos";
+  const teamsPerGroup = isGrupos ? Math.floor(tournament.numberOfTeams / (tournament.gruposQuantidade || 1)) : 0;
 
   const getPromotion = (pos: number) => promotions.find((p) => p.position === pos);
 
@@ -158,7 +159,15 @@ export default function PromotionEditor({
           </p>
           <div className={cn("grid gap-3", gridCols)}>
             {Array.from({ length: groupCount }, (_, i) => i + 1).map((g) => {
-              const groupStandings = standingsByGroup![g] || [];
+              let groupStandings = standingsByGroup?.[g] || [];
+              // Generate placeholder rows if no real standings
+              if (groupStandings.length === 0 && teamsPerGroup > 0) {
+                groupStandings = Array.from({ length: teamsPerGroup }, (_, j) => ({
+                  teamId: `placeholder-${g}-${j}`,
+                  played: 0, wins: 0, draws: 0, losses: 0,
+                  goalsFor: 0, goalsAgainst: 0, goalDifference: 0, points: 0,
+                }));
+              }
               return (
                 <div key={g}>
                   {renderPositionTable(groupStandings, `Grupo ${String.fromCharCode(64 + g)}`)}
