@@ -7,6 +7,15 @@ import { Json } from "@/integrations/supabase/types";
 // Use any-typed client to avoid strict type errors from generated types
 const db = supabase as any;
 
+function parseJsonField<T>(raw: any, fallback: T): T {
+  if (raw === null || raw === undefined) return fallback;
+  if (typeof raw === "object") return raw as T;
+  if (typeof raw === "string") {
+    try { return JSON.parse(raw) as T; } catch { return fallback; }
+  }
+  return fallback;
+}
+
 function dbToTournament(row: any): Tournament {
   return {
     id: row.id,
@@ -16,12 +25,12 @@ function dbToTournament(row: any): Tournament {
     format: row.format as Tournament["format"],
     numberOfTeams: parseInt(String(row.number_of_teams)) || 0,
     logo: row.logo || row.logo_url || undefined,
-    teamIds: row.team_ids || [],
-    settings: row.settings as unknown as TournamentSettings,
-    matches: (row.matches || []) as unknown as Match[],
+    teamIds: parseJsonField<string[]>(row.team_ids, []),
+    settings: parseJsonField<TournamentSettings>(row.settings, {} as TournamentSettings),
+    matches: parseJsonField<Match[]>(row.matches, []),
     finalized: row.finalized === true || row.finalized === "true",
     groupsFinalized: row.groups_finalized === true || row.groups_finalized === "true",
-    seasons: (row.seasons || []) as unknown as SeasonRecord[],
+    seasons: parseJsonField<SeasonRecord[]>(row.seasons, []),
     ligaTurnos: row.liga_turnos as Tournament["ligaTurnos"],
     gruposQuantidade: row.grupos_quantidade ? parseInt(String(row.grupos_quantidade)) : undefined,
     gruposTurnos: (row.grupos_turnos ? parseInt(String(row.grupos_turnos)) : undefined) as Tournament["gruposTurnos"],

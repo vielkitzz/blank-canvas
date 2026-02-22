@@ -49,13 +49,17 @@ export default function StandingsTable({ standings, promotions = [], qualifyUnti
               <tr
                 key={row.teamId}
                 className={cn(
-                  "border-b border-border/50 transition-colors",
+                  "border-b border-border/50 transition-colors relative",
                   isEliminated ? "opacity-50 bg-destructive/5" : "hover:bg-secondary/30",
                   showDivider && "border-t-2 border-t-destructive/40"
                 )}
-                style={promo ? { borderLeft: `4px solid ${promo.color}` } : undefined}
               >
-                <td className="py-2.5 px-2 text-muted-foreground font-mono text-xs">{pos}</td>
+                <td
+                  className="py-2.5 px-2 text-muted-foreground font-mono text-xs"
+                  style={promo ? { borderLeft: `4px solid ${promo.color}` } : undefined}
+                >
+                  {pos}
+                </td>
                 <td className="py-2.5 px-2">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 flex items-center justify-center shrink-0">
