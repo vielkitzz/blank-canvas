@@ -39,7 +39,9 @@ export default function GroupQualificationView({
   };
 
   const count = selected.size;
-  const isReady = count === totalKnockoutTeams;
+  // Bug fix: allow confirmation when count is even and >= 2, not just when exactly equal to totalKnockoutTeams
+  // This prevents the button from being permanently disabled due to misconfiguration
+  const isReady = count >= 2 && count % 2 === 0;
 
   const gridCols =
     groupCount === 1

@@ -15,6 +15,7 @@ import {
   ChevronDown,
   CheckCircle,
   Pencil,
+  Play,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -180,12 +181,19 @@ export default function TournamentDetailPage() {
   // ─── Confirm manual qualifiers & generate knockout ───────────────────────
   // Bug fix #8/#9: Calculate totalKnockoutTeams dynamically based on group count
   // and qualifiers per group, not just STAGE_TEAM_COUNTS (which may not match)
+  // qualifiersPerGroup = total number of teams that advance to the knockout phase.
+  // Logic: the knockout start stage defines how many teams enter the bracket.
+  // We cap it to half the total teams to ensure at least half are eliminated in groups.
+  // Example: 8 teams, 2 groups, startStage "1/4" (4 teams) → 4 qualifiers (2 per group)
+  // Example: 8 teams, 2 groups, startStage "1/8" (8 teams) → cap to 4 (half of 8)
   const qualifiersPerGroup = (() => {
     const startStage = tournament.gruposMataMataInicio || "1/8";
-    const stageTotal = STAGE_TEAM_COUNTS[startStage] || 16;
-    // Use the smaller of: stageTotal or (groupCount * 2) to ensure we have enough teams
-    const maxFromGroups = groupCount * Math.ceil(stageTotal / groupCount);
-    return Math.max(2, Math.min(stageTotal, maxFromGroups));
+    const stageTotal = STAGE_TEAM_COUNTS[startStage] || 8;
+    const totalTeams = tournament.teamIds.length;
+    // Cap qualifiers to at most half the total teams (so groups actually eliminate someone)
+    // and at least 2 (need at least 2 for a bracket)
+    const maxSensible = Math.max(2, Math.floor(totalTeams / 2));
+    return Math.min(stageTotal, maxSensible);
   })();
 
   const handleConfirmQualifiers = (selectedTeamIds: string[]) => {
@@ -196,9 +204,16 @@ export default function TournamentDetailPage() {
       toast.error(`Selecione pelo menos 2 times para o mata-mata.`);
       return;
     }
+    // Warn if count doesn't match expected, but still allow confirmation
+    // This prevents the button from being permanently disabled due to misconfiguration
     if (selectedTeamIds.length !== totalKnockoutTeams) {
-      toast.error(`Selecione exatamente ${totalKnockoutTeams} times.`);
-      return;
+      // Allow if count is at least 2 and is even (needed for bracket pairing)
+      if (selectedTeamIds.length % 2 !== 0) {
+        toast.error(`Selecione um número par de times (atual: ${selectedTeamIds.length}).`);
+        return;
+      }
+      // Proceed with a warning
+      toast.warning(`${selectedTeamIds.length} times selecionados (esperado: ${totalKnockoutTeams}). Gerando mata-mata assim mesmo.`);
     }
 
     // Build seeded list: order by group-position for cross-seeding
@@ -862,9 +877,13 @@ export default function TournamentDetailPage() {
             <TabsTrigger value="rodadas" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
               Rodadas
             </TabsTrigger>
+            {/* Bug fix: show Mata-Mata tab only after groups are finalized AND knockout matches exist */}
             {(tournament.groupsFinalized || allGroupMatchesPlayed) && (
               <TabsTrigger value="mata-mata" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
                 Mata-Mata
+                {tournament.groupsFinalized && knockoutMatches.length > 0 && (
+                  <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary inline-block" />
+                )}
               </TabsTrigger>
             )}
             <TabsTrigger value="estatisticas" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs">
@@ -915,7 +934,10 @@ export default function TournamentDetailPage() {
           {(tournament.groupsFinalized || allGroupMatchesPlayed) && (
             <TabsContent value="mata-mata">
               <div className="rounded-xl card-gradient border border-border shadow-card p-4">
-                {tournament.groupsFinalized ? (
+                {/* Bug fix: Only show BracketView when groupsFinalized=true AND knockout matches exist.
+                    When groupsFinalized=false (groups done but not confirmed), show a clear CTA.
+                    When groupsFinalized=true but knockoutMatches is empty (edge case), show error. */}
+                {tournament.groupsFinalized && knockoutMatches.length > 0 ? (
                   <BracketView
                     tournament={knockoutTournament}
                     teams={teams}
@@ -945,15 +967,40 @@ export default function TournamentDetailPage() {
                     onGenerateBracket={() => {}}
                     onFinalize={handleFinalizeSeason}
                   />
+                ) : tournament.groupsFinalized && knockoutMatches.length === 0 ? (
+                  // Edge case: groupsFinalized=true but no knockout matches generated yet
+                  <div className="text-center py-12 space-y-3">
+                    <Trophy className="w-10 h-10 text-muted-foreground mx-auto" />
+                    <p className="text-sm text-muted-foreground">
+                      Os classificados foram confirmados, mas os jogos do mata-mata ainda não foram gerados.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        // Re-trigger qualification with already confirmed teams
+                        const confirmedIds = tournament.settings.qualifiedTeamIds || [];
+                        if (confirmedIds.length >= 2) {
+                          handleConfirmQualifiers(confirmedIds);
+                        } else {
+                          toast.error("Volte à aba Grupos e confirme os classificados.");
+                        }
+                      }}
+                      size="sm"
+                      className="gap-2 bg-primary text-primary-foreground"
+                    >
+                      <Play className="w-4 h-4" />
+                      Gerar Jogos do Mata-Mata
+                    </Button>
+                  </div>
                 ) : (
-                  <GroupQualificationView
-                    groupCount={groupCount}
-                    standingsByGroup={standingsByGroup}
-                    totalKnockoutTeams={qualifiersPerGroup}
-                    allGroupMatchesPlayed={allGroupMatchesPlayed}
-                    confirmedTeamIds={tournament.settings.qualifiedTeamIds}
-                    onConfirm={handleConfirmQualifiers}
-                  />
+                  // groupsFinalized=false: groups are done but qualifiers not confirmed yet
+                  <div className="text-center py-12 space-y-3">
+                    <CheckCircle className="w-10 h-10 text-muted-foreground mx-auto" />
+                    <p className="text-sm font-medium text-foreground">Fase de Grupos Concluída!</p>
+                    <p className="text-sm text-muted-foreground">
+                      Acesse a aba <strong>Grupos</strong> e clique em{" "}
+                      <strong>"Confirmar e Gerar Mata-Mata"</strong> para iniciar a fase eliminatória.
+                    </p>
+                  </div>
                 )}
               </div>
             </TabsContent>
