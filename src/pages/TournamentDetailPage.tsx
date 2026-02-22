@@ -36,6 +36,7 @@ import StandingsTable from "@/components/tournament/StandingsTable";
 import RoundsView from "@/components/tournament/RoundsView";
 import BracketView from "@/components/tournament/BracketView";
 import GroupQualificationView from "@/components/tournament/GroupQualificationView";
+import StatsView from "@/components/tournament/StatsView";
 import { calculateStandings } from "@/lib/standings";
 import { generateRoundRobin } from "@/lib/roundRobin";
 import { Match, SeasonRecord, STAGE_TEAM_COUNTS, KnockoutStage } from "@/types/tournament";
@@ -414,13 +415,13 @@ export default function TournamentDetailPage() {
         if (!homeId && !awayId) continue;
         if (legMode === "home-away" && homeId && awayId) {
           const pairId = crypto.randomUUID();
-          newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: homeId, awayTeamId: awayId, homeScore: 0, awayScore: 0, played: false, leg: 1, pairId });
-          newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: awayId, awayTeamId: homeId, homeScore: 0, awayScore: 0, played: false, leg: 2, pairId });
+          newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: homeId, awayTeamId: awayId, homeScore: 0, awayScore: 0, played: false, leg: 1, pairId, stage: "knockout" });
+          newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: awayId, awayTeamId: homeId, homeScore: 0, awayScore: 0, played: false, leg: 2, pairId, stage: "knockout" });
         } else {
           const matchHomeId = homeId || awayId!;
           const matchAwayId = homeId && awayId ? awayId : "";
           const isBye = !homeId || !awayId;
-          newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: matchHomeId, awayTeamId: matchAwayId, homeScore: isBye ? 1 : 0, awayScore: 0, played: isBye });
+          newMatches.push({ id: crypto.randomUUID(), tournamentId: tournament.id, round: 1, homeTeamId: matchHomeId, awayTeamId: matchAwayId, homeScore: isBye ? 1 : 0, awayScore: 0, played: isBye, stage: "knockout" });
         }
       }
       updateTournament(tournament.id, { matches: newMatches });
@@ -579,6 +580,7 @@ export default function TournamentDetailPage() {
             {(isMataMata || isGrupos) && (
               <TabsTrigger value="bracket" className="data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs lg:text-sm">Chaveamento</TabsTrigger>
             )}
+            <TabsTrigger value="stats" className="data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs lg:text-sm">Estatísticas</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
@@ -727,6 +729,13 @@ export default function TournamentDetailPage() {
             </div>
           </TabsContent>
         )}
+
+        <TabsContent value="stats" className="mt-0 outline-none">
+          <StatsView
+            tournament={isViewingPastSeason ? { ...tournament, matches: seasonData?.matches || [] } : tournament}
+            teams={teams}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );

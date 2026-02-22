@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Match, Team, Tournament, KnockoutStage, STAGE_TEAM_COUNTS } from "@/types/tournament";
+import { cn } from "@/lib/utils";
 import { Shield, Play, Zap, Trophy, Medal, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { simulateFullMatch } from "@/lib/simulation";
