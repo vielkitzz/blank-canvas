@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StandingRow } from "@/lib/standings";
@@ -24,9 +24,33 @@ export default function GroupQualificationView({
 }: GroupQualificationViewProps) {
   const isReadonly = !!confirmedTeamIds && confirmedTeamIds.length > 0;
 
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(confirmedTeamIds ?? [])
-  );
+  // Calcula quantos classificados por grupo com base no total de vagas e número de grupos
+  const qualifiersPerGroup = groupCount > 0 ? Math.max(1, Math.round(totalKnockoutTeams / groupCount)) : 1;
+
+  // Pré-seleciona automaticamente os classificados de cada grupo quando todos os jogos estiverem concluídos
+  const getAutoSelected = (): Set<string> => {
+    if (confirmedTeamIds && confirmedTeamIds.length > 0) {
+      return new Set(confirmedTeamIds);
+    }
+    if (!allGroupMatchesPlayed) return new Set();
+    const autoIds: string[] = [];
+    for (let g = 1; g <= groupCount; g++) {
+      const rows = standingsByGroup[g] || [];
+      rows.slice(0, qualifiersPerGroup).forEach((row) => autoIds.push(row.teamId));
+    }
+    return new Set(autoIds);
+  };
+
+  const [selected, setSelected] = useState<Set<string>>(getAutoSelected);
+
+  // Atualiza a seleção automaticamente quando os jogos forem concluídos
+  useEffect(() => {
+    if (isReadonly) return;
+    if (allGroupMatchesPlayed && selected.size === 0) {
+      setSelected(getAutoSelected());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allGroupMatchesPlayed, isReadonly]);
 
   const toggle = (teamId: string) => {
     if (isReadonly || !allGroupMatchesPlayed) return;
@@ -39,8 +63,7 @@ export default function GroupQualificationView({
   };
 
   const count = selected.size;
-  // Bug fix: allow confirmation when count is even and >= 2, not just when exactly equal to totalKnockoutTeams
-  // This prevents the button from being permanently disabled due to misconfiguration
+  // Permite confirmação quando há pelo menos 2 times selecionados e o número é par
   const isReady = count >= 2 && count % 2 === 0;
 
   const gridCols =

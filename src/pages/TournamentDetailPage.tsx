@@ -143,7 +143,7 @@ export default function TournamentDetailPage() {
 
   // For grupos format, separate group and knockout matches
   const groupMatches = isGrupos
-    ? (tournament.matches || []).filter((m) => m.stage === "group" || !m.stage)
+    ? (tournament.matches || []).filter((m) => m.stage === "group" || (!m.stage && !m.isThirdPlace))
     : tournament.matches || [];
   const knockoutMatches = isGrupos
     ? (tournament.matches || []).filter((m) => m.stage === "knockout")
