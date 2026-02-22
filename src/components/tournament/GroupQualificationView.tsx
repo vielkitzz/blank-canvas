@@ -166,19 +166,12 @@ export default function GroupQualificationView({
                             </span>
                           </div>
                         </td>
-                        <td className={cn("text-center py-2 px-0.5 font-bold tabular-nums", isSelected ? "text-primary" : "text-foreground")}>{row.points}</td>
+                        <td className="text-center py-2 px-0.5 font-bold tabular-nums text-foreground">{row.points}</td>
                         <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.played}</td>
                         <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.wins}</td>
                         <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.draws}</td>
                         <td className="text-center py-2 px-0.5 tabular-nums text-muted-foreground">{row.losses}</td>
-                        <td className={cn(
-                          "text-center py-2 px-0.5 font-semibold tabular-nums",
-                          row.goalDifference > 0
-                            ? "text-emerald-400"
-                            : row.goalDifference < 0
-                            ? "text-red-400"
-                            : "text-muted-foreground"
-                        )}>
+                        <td className="text-center py-2 px-0.5 font-semibold tabular-nums text-muted-foreground">
                           {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
                         </td>
                       </tr>

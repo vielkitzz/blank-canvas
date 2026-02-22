@@ -34,8 +34,8 @@ function getStagesFromStart(start: KnockoutStage): string[] {
 function getAggregate(leg1: Match, leg2: Match): { home: number; away: number } {
   // leg1: homeTeamId is "home team of the tie"
   // leg2: homeTeamId is "away team of the tie" (reversed)
-  const home = leg1.homeScore + (leg1.homeExtraTime || 0) + leg2.awayScore + (leg2.awayExtraTime || 0);
-  const away = leg1.awayScore + (leg1.awayExtraTime || 0) + leg2.homeScore + (leg2.homeExtraTime || 0);
+  const home = (leg1.homeScore || 0) + (leg1.homeExtraTime || 0) + (leg2.awayScore || 0) + (leg2.awayExtraTime || 0);
+  const away = (leg1.awayScore || 0) + (leg1.awayExtraTime || 0) + (leg2.homeScore || 0) + (leg2.homeExtraTime || 0);
   return { home, away };
 }
 
@@ -44,17 +44,20 @@ function getTieWinner(leg1: Match, leg2: Match, awayGoalsRule: boolean): string 
   const agg = getAggregate(leg1, leg2);
   if (agg.home > agg.away) return leg1.homeTeamId;
   if (agg.away > agg.home) return leg1.awayTeamId;
+  
   // Away goals rule: leg2 away goals = leg1 team's goals in leg2 (they're away in leg2)
   if (awayGoalsRule) {
-    const awayGoalsHome = leg2.awayScore + (leg2.awayExtraTime || 0); // homeTeamId's away goals
-    const awayGoalsAway = leg1.awayScore + (leg1.awayExtraTime || 0); // awayTeamId's away goals
+    const awayGoalsHome = (leg2.awayScore || 0) + (leg2.awayExtraTime || 0); // homeTeamId's away goals
+    const awayGoalsAway = (leg1.awayScore || 0) + (leg1.awayExtraTime || 0); // awayTeamId's away goals
     if (awayGoalsHome > awayGoalsAway) return leg1.homeTeamId;
     if (awayGoalsAway > awayGoalsHome) return leg1.awayTeamId;
   }
+  
   // Penalties in leg2
   if (leg2.homePenalties !== undefined && leg2.awayPenalties !== undefined) {
     // leg2 home = awayTeamId of the tie, leg2 away = homeTeamId of the tie
-    return (leg2.awayPenalties || 0) > (leg2.homePenalties || 0) ? leg1.homeTeamId : leg1.awayTeamId;
+    if (leg2.awayPenalties > leg2.homePenalties) return leg1.homeTeamId;
+    if (leg2.homePenalties > leg2.awayPenalties) return leg1.awayTeamId;
   }
   return null;
 }
@@ -67,7 +70,7 @@ export default function BracketView({
   onGenerateBracket,
   onFinalize,
 }: BracketViewProps) {
-  const matches = tournament.matches;
+  const matches = tournament.matches || [];
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [editingTeam, setEditingTeam] = useState<{ match: Match; side: "home" | "away" } | null>(null);
 
@@ -104,7 +107,7 @@ export default function BracketView({
   const regularMatches = matches.filter((m) => !m.isThirdPlace);
   const thirdPlaceMatches = matches.filter((m) => m.isThirdPlace);
 
-  // Map rounds to stages — group by round number AND leg
+  // Map rounds to stages
   const matchesByStage: Record<string, Match[]> = {};
   stages.forEach((stage, i) => {
     matchesByStage[stage] = regularMatches.filter((m) => m.round === i + 1);
@@ -132,49 +135,36 @@ export default function BracketView({
     return result;
   }
 
-  // Bug fix #4/#5: allRegularPlayed must check that every match has a defined winner,
-  // not just that it was played. A draw without penalties in a single-leg knockout
-  // is an invalid state — the tournament cannot be finalized without a winner.
-  const allRegularPlayed = regularMatches.length > 0 && regularMatches.every((m) => {
-    if (!m.played) return false;
-    // For BYE matches (empty awayTeamId), they are always resolved
-    if (!m.awayTeamId) return true;
-    // Check if this match has a resolved winner
-    const homeTotal = m.homeScore + (m.homeExtraTime || 0);
-    const awayTotal = m.awayScore + (m.awayExtraTime || 0);
-    if (homeTotal !== awayTotal) return true; // clear winner
-    // Draw: only valid if penalties are defined
-    return m.homePenalties !== undefined && m.awayPenalties !== undefined &&
-           m.homePenalties !== m.awayPenalties;
-  });
-
   const getSingleMatchWinner = (match: Match): string | null => {
     if (!match.played) return null;
-    // BYE match: the team with a real ID wins automatically
     if (!match.awayTeamId) return match.homeTeamId;
     if (!match.homeTeamId) return match.awayTeamId;
-    const homeTotal = match.homeScore + (match.homeExtraTime || 0);
-    const awayTotal = match.awayScore + (match.awayExtraTime || 0);
+    const homeTotal = (match.homeScore || 0) + (match.homeExtraTime || 0);
+    const awayTotal = (match.awayScore || 0) + (match.awayExtraTime || 0);
     if (homeTotal > awayTotal) return match.homeTeamId;
     if (awayTotal > homeTotal) return match.awayTeamId;
     if (match.homePenalties !== undefined && match.awayPenalties !== undefined) {
-      return (match.homePenalties || 0) > (match.awayPenalties || 0) ? match.homeTeamId : match.awayTeamId;
+      return match.homePenalties > match.awayPenalties ? match.homeTeamId : match.awayTeamId;
     }
     return null;
   };
 
-  // Get winner for a tie (could be 1 or 2 legs)
   const getTieResult = (pair: { leg1: Match; leg2: Match | null }): string | null => {
     if (!pair.leg2) return getSingleMatchWinner(pair.leg1);
     return getTieWinner(pair.leg1, pair.leg2, awayGoalsRule);
   };
 
-  // Get loser for semi-final (for 3rd place)
   const getSemiLoser = (pair: { leg1: Match; leg2: Match | null }): string | null => {
     const winner = getTieResult(pair);
     if (!winner) return null;
     return winner === pair.leg1.homeTeamId ? pair.leg1.awayTeamId : pair.leg1.homeTeamId;
   };
+
+  // Check if all matches in the final stage are resolved
+  const finalStage = stages[stages.length - 1];
+  const finalMatchesList = matchesByStage[finalStage] || [];
+  const finalPairs = getPairs(finalMatchesList);
+  const allFinalResolved = finalPairs.length > 0 && finalPairs.every((p) => getTieResult(p) !== null);
 
   const simulateMatch = (match: Match): Match => {
     const home = getTeam(match.homeTeamId);
@@ -211,9 +201,11 @@ export default function BracketView({
     let homePenalties: number | undefined;
     let awayPenalties: number | undefined;
 
-    // Check if aggregate is tied after this leg
     const agg = getAggregate(leg1, { ...leg2, homeScore, awayScore });
-    if (agg.home === agg.away && !awayGoalsRule) {
+    const isTied = agg.home === agg.away;
+    const awayGoalsTied = awayGoalsRule && (leg1.awayScore || 0) === (leg2.awayScore || 0);
+    
+    if (isTied && (!awayGoalsRule || awayGoalsTied)) {
       homePenalties = Math.floor(Math.random() * 3) + 3;
       awayPenalties = homePenalties + (Math.random() > 0.5 ? 1 : -1);
       if (awayPenalties < 0) awayPenalties = homePenalties + 1;
@@ -231,7 +223,6 @@ export default function BracketView({
     const stageMatches = matchesByStage[stage]?.filter((m) => !m.played && m.homeTeamId && m.awayTeamId) || [];
     if (stageMatches.length === 0) return;
     const updated = stageMatches.map((match) => {
-      // Find pair for this match
       if (match.pairId && match.leg === 2) {
         const leg1 = matchesByStage[stage].find((m) => m.pairId === match.pairId && m.leg === 1);
         if (leg1 && leg1.played) return simulateLeg2(match, leg1);
@@ -261,7 +252,6 @@ export default function BracketView({
     const stageMatchesList = matchesByStage[stage] || [];
     const nextStageMatches = matchesByStage[nextStage] || [];
 
-    // Check all ties are resolved
     const pairs = getPairs(stageMatchesList);
     const allResolved = pairs.every((p) => getTieResult(p) !== null);
     if (!allResolved) return;
@@ -273,6 +263,8 @@ export default function BracketView({
     const useSingleLeg = legMode === "single" || (isFinalStage && finalSingleLeg);
 
     const newMatches: Match[] = [];
+    const stageType = tournament.format === "grupos" ? "knockout" : undefined;
+
     if (useSingleLeg) {
       for (let i = 0; i < winners.length; i += 2) {
         if (i + 1 < winners.length) {
@@ -285,11 +277,11 @@ export default function BracketView({
             homeScore: 0,
             awayScore: 0,
             played: false,
+            stage: stageType as any,
           });
         }
       }
     } else {
-      // Home-and-away
       for (let i = 0; i < winners.length; i += 2) {
         if (i + 1 < winners.length) {
           const pairId = crypto.randomUUID();
@@ -304,6 +296,7 @@ export default function BracketView({
             played: false,
             leg: 1,
             pairId,
+            stage: stageType as any,
           });
           newMatches.push({
             id: crypto.randomUUID(),
@@ -316,13 +309,12 @@ export default function BracketView({
             played: false,
             leg: 2,
             pairId,
+            stage: stageType as any,
           });
         }
       }
     }
 
-    // Generate 3rd place match if enabled and this is the semi-final advancing to final
-    const finalStageIdx = stages.length - 1;
     const semiStageIdx = stages.length - 2;
     if (thirdPlaceMatch && stageIndex === semiStageIdx && !matches.some((m) => m.isThirdPlace)) {
       const losers = pairs.map(getSemiLoser).filter(Boolean) as string[];
@@ -337,6 +329,7 @@ export default function BracketView({
           awayScore: 0,
           played: false,
           isThirdPlace: true,
+          stage: stageType as any,
         });
       }
     }
@@ -346,80 +339,42 @@ export default function BracketView({
     }
   };
 
-  // Render a pair (single or home-away)
   const renderPair = (pair: { leg1: Match; leg2: Match | null }, pairIdx: number) => {
+    const homeTeam = getTeam(pair.leg1.homeTeamId);
+    const awayTeam = getTeam(pair.leg1.awayTeamId);
     const winner = getTieResult(pair);
-    const isHomeAway = !!pair.leg2;
-    const { leg1, leg2 } = pair;
 
-    const homeTeam = getTeam(leg1.homeTeamId);
-    const awayTeam = getTeam(leg1.awayTeamId);
-
-    if (!isHomeAway) {
-      // Single leg
-      const match = leg1;
-      const matchWinner = getSingleMatchWinner(match);
-      return (
+    return (
+      <div key={pair.leg1.id} className="w-[180px] rounded-lg bg-secondary/30 border border-border overflow-hidden">
         <button
-          key={match.id}
-          onClick={() => setSelectedMatch(match)}
-          className="w-[180px] rounded-lg bg-secondary/30 border border-border hover:border-primary/40 transition-all text-left overflow-hidden"
+          className="w-full text-left hover:bg-secondary/20 transition-colors"
+          onClick={() => setSelectedMatch(pair.leg1)}
         >
-          <TeamRow team={homeTeam} score={match.played ? match.homeScore + (match.homeExtraTime || 0) : undefined} isWinner={matchWinner === match.homeTeamId} borderBottom onEditTeam={() => setEditingTeam({ match, side: "home" })} />
-          <TeamRow team={awayTeam} score={match.played ? match.awayScore + (match.awayExtraTime || 0) : undefined} isWinner={matchWinner === match.awayTeamId} onEditTeam={() => setEditingTeam({ match, side: "away" })} />
-          {match.played && match.homePenalties !== undefined && (
-            <div className="text-center py-0.5 bg-secondary/50">
-              <span className="text-[9px] text-muted-foreground">Pên: {match.homePenalties}×{match.awayPenalties}</span>
+          {pair.leg2 && (
+            <div className="flex items-center gap-1 px-2 py-1 border-b border-border/20">
+              <span className="text-[8px] text-muted-foreground">Ida</span>
             </div>
           )}
+          <TeamRow team={homeTeam} score={pair.leg1.played ? pair.leg1.homeScore : undefined} isWinner={winner === pair.leg1.homeTeamId} borderBottom compact onEditTeam={() => setEditingTeam({ match: pair.leg1, side: "home" })} />
+          <TeamRow team={awayTeam} score={pair.leg1.played ? pair.leg1.awayScore : undefined} isWinner={winner === pair.leg1.awayTeamId} compact onEditTeam={() => setEditingTeam({ match: pair.leg1, side: "away" })} />
         </button>
-      );
-    }
-
-    // Home-away tie
-    const agg = leg1.played && leg2?.played ? getAggregate(leg1, leg2) : null;
-    return (
-      <div key={`${leg1.id}-pair`} className="w-[180px] rounded-lg border border-border overflow-hidden">
-        {/* Aggregate display */}
-        {agg && (
-          <div className="flex items-center justify-between px-2 py-0.5 bg-secondary/50 border-b border-border/50">
-            <span className="text-[9px] text-muted-foreground">Agregado</span>
-            <span className={`text-[9px] font-bold ${agg.home > agg.away ? "text-foreground" : agg.away > agg.home ? "text-muted-foreground" : "text-muted-foreground"}`}>
-              {homeTeam?.abbreviation || "—"} {agg.home}–{agg.away} {awayTeam?.abbreviation || "—"}
-            </span>
-          </div>
-        )}
-        {/* Leg 1 */}
-        <button
-          className="w-full text-left hover:bg-secondary/20 transition-colors border-b border-border/30"
-          onClick={() => setSelectedMatch(leg1)}
-        >
-          <div className="flex items-center gap-1 px-2 py-1 border-b border-border/20">
-            <span className="text-[8px] text-muted-foreground">Ida</span>
-          </div>
-          <TeamRow team={homeTeam} score={leg1.played ? leg1.homeScore : undefined} isWinner={false} borderBottom compact onEditTeam={() => setEditingTeam({ match: leg1, side: "home" })} />
-          <TeamRow team={awayTeam} score={leg1.played ? leg1.awayScore : undefined} isWinner={false} compact onEditTeam={() => setEditingTeam({ match: leg1, side: "away" })} />
-        </button>
-        {/* Leg 2 */}
-        {leg2 && (
+        {pair.leg2 && (
           <button
             className="w-full text-left hover:bg-secondary/20 transition-colors"
-            onClick={() => setSelectedMatch(leg2)}
+            onClick={() => setSelectedMatch(pair.leg2)}
           >
             <div className="flex items-center gap-1 px-2 py-1 border-b border-border/20">
               <span className="text-[8px] text-muted-foreground">Volta</span>
             </div>
-            {/* In leg2, away team of leg1 is home */}
-            <TeamRow team={awayTeam} score={leg2.played ? leg2.homeScore : undefined} isWinner={false} borderBottom compact onEditTeam={() => setEditingTeam({ match: leg2, side: "home" })} />
-            <TeamRow team={homeTeam} score={leg2.played ? leg2.awayScore : undefined} isWinner={false} compact onEditTeam={() => setEditingTeam({ match: leg2, side: "away" })} />
-            {leg2.played && leg2.homePenalties !== undefined && (
+            <TeamRow team={awayTeam} score={pair.leg2.played ? pair.leg2.homeScore : undefined} isWinner={winner === pair.leg1.awayTeamId} borderBottom compact onEditTeam={() => setEditingTeam({ match: pair.leg2!, side: "home" })} />
+            <TeamRow team={homeTeam} score={pair.leg2.played ? pair.leg2.awayScore : undefined} isWinner={winner === pair.leg1.homeTeamId} compact onEditTeam={() => setEditingTeam({ match: pair.leg2!, side: "away" })} />
+            {pair.leg2.played && pair.leg2.homePenalties !== undefined && (
               <div className="text-center py-0.5 bg-secondary/50">
-                <span className="text-[9px] text-muted-foreground">Pên: {leg2.homePenalties}×{leg2.awayPenalties}</span>
+                <span className="text-[9px] text-muted-foreground">Pên: {pair.leg2.awayPenalties}×{pair.leg2.homePenalties}</span>
               </div>
             )}
           </button>
         )}
-        {/* Tie winner indicator */}
         {winner && (
           <div className="px-2 py-0.5 bg-primary/10 border-t border-primary/20">
             <span className="text-[9px] text-primary font-bold">
@@ -433,7 +388,6 @@ export default function BracketView({
 
   return (
     <div className="space-y-4">
-      {/* Bracket visualization */}
       <div className="overflow-x-auto pb-2">
         <div className="flex gap-4 min-w-max items-start">
           {stages.map((stage, stageIdx) => {
@@ -447,7 +401,6 @@ export default function BracketView({
 
             return (
               <div key={stage} className="flex flex-col items-center" style={{ minWidth: 188 }}>
-                {/* Stage header */}
                 <div className="mb-2 flex items-center gap-1.5">
                   <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
                     {STAGE_LABELS[stage] || stage}
@@ -457,7 +410,6 @@ export default function BracketView({
                   )}
                 </div>
 
-                {/* Simulate button */}
                 {unplayed.length > 0 && (
                   <button
                     onClick={() => handleSimulateStage(stage)}
@@ -468,7 +420,6 @@ export default function BracketView({
                   </button>
                 )}
 
-                {/* Advance button */}
                 {allStagePairsResolved && nextStage && !nextHasMatches && (
                   <button
                     onClick={() => handleAdvanceStage(stageIdx)}
@@ -478,7 +429,6 @@ export default function BracketView({
                   </button>
                 )}
 
-                {/* Match cards */}
                 <div className="flex flex-col gap-2 justify-center flex-1">
                   {pairs.length === 0 ? (
                     <div className="w-[180px] p-3 rounded-lg border border-dashed border-border bg-secondary/20 text-center">
@@ -492,15 +442,9 @@ export default function BracketView({
             );
           })}
 
-          {/* Champion column */}
           {(() => {
-            const finalStage = stages[stages.length - 1];
-            const finalMatchesList = matchesByStage[finalStage] || [];
-            const finalPairs = getPairs(finalMatchesList);
-            const finalPair = finalPairs[0];
-            const champion = finalPair ? getTieResult(finalPair) : null;
+            const champion = finalPairs.length > 0 ? getTieResult(finalPairs[0]) : null;
             const championTeam = champion ? getTeam(champion) : null;
-
             if (!championTeam) return null;
 
             return (
@@ -525,7 +469,6 @@ export default function BracketView({
         </div>
       </div>
 
-      {/* Third-place match */}
       {thirdPlaceMatches.length > 0 && (
         <div className="border-t border-border pt-4">
           <div className="flex items-center gap-2 mb-2">
@@ -557,23 +500,11 @@ export default function BracketView({
                 </button>
               );
             })}
-            {(() => {
-              const w = thirdPlaceMatches[0]?.played ? getSingleMatchWinner(thirdPlaceMatches[0]) : null;
-              const thirdTeam = w ? getTeam(w) : null;
-              if (!thirdTeam) return null;
-              return (
-                <div className="flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg bg-warning/10 border border-warning/30">
-                  <Medal className="w-4 h-4 text-warning" />
-                  <span className="text-[10px] font-bold text-foreground">{thirdTeam.abbreviation || thirdTeam.shortName}</span>
-                </div>
-              );
-            })()}
           </div>
         </div>
       )}
 
-      {/* Finalize banner */}
-      {allRegularPlayed && !tournament.finalized && onFinalize && (
+      {allFinalResolved && !tournament.finalized && onFinalize && (
         <div className="flex items-center justify-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
           <Trophy className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">Chaveamento concluído!</span>
@@ -585,14 +516,7 @@ export default function BracketView({
       )}
 
       {tournament.finalized && (() => {
-        // Bug fix #7: Show champion name prominently in the finalized banner
-        const finalStage = stages[stages.length - 1];
-        const finalMatchesList = (tournament.matches || []).filter(
-          (m) => !m.isThirdPlace && m.round === stages.length
-        );
-        const finalPairs = getPairs(finalMatchesList);
-        const finalPair = finalPairs[0];
-        const champion = finalPair ? getTieResult(finalPair) : null;
+        const champion = finalPairs.length > 0 ? getTieResult(finalPairs[0]) : null;
         const championTeam = champion ? teams.find((t) => t.id === champion) : null;
         return (
           <div className="flex items-center justify-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
@@ -612,7 +536,6 @@ export default function BracketView({
         );
       })()}
 
-      {/* Match Popup */}
       {selectedMatch && (
         <MatchPopup
           match={selectedMatch}
@@ -629,7 +552,6 @@ export default function BracketView({
         />
       )}
 
-      {/* Bracket Team Editor */}
       {editingTeam && (
         <BracketTeamEditor
           match={editingTeam.match}
@@ -658,34 +580,43 @@ function TeamRow({
   isWinner: boolean;
   borderBottom?: boolean;
   compact?: boolean;
-  onEditTeam?: () => void;
+  onEditTeam: () => void;
 }) {
-  const py = compact ? "py-1" : "py-1.5";
   return (
-    <div className={`flex items-center gap-1.5 px-2 ${py} ${borderBottom ? "border-b border-border/40" : ""} ${isWinner ? "bg-primary/10" : ""}`}>
-      {onEditTeam && (
+    <div className={cn(
+      "flex items-center justify-between px-2 py-1.5",
+      borderBottom && "border-b border-border/20",
+      isWinner && "bg-primary/5"
+    )}>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-4 h-4 flex items-center justify-center shrink-0">
+          {team?.logo ? (
+            <img src={team.logo} alt="" className="w-4 h-4 object-contain" />
+          ) : (
+            <Shield className="w-3 h-3 text-muted-foreground" />
+          )}
+        </div>
+        <span className={cn(
+          "text-xs truncate",
+          isWinner ? "font-bold text-foreground" : "text-muted-foreground"
+        )}>
+          {team?.abbreviation || team?.shortName || "—"}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className={cn(
+          "text-xs font-mono w-4 text-center",
+          score !== undefined ? (isWinner ? "font-bold text-primary" : "text-foreground") : "text-muted-foreground/30"
+        )}>
+          {score !== undefined ? score : "—"}
+        </span>
         <button
           onClick={(e) => { e.stopPropagation(); onEditTeam(); }}
-          className="p-0.5 rounded hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors shrink-0"
-          title="Editar time"
+          className="p-1 rounded hover:bg-secondary text-muted-foreground/40 hover:text-primary transition-colors"
         >
           <UserPlus className="w-2.5 h-2.5" />
         </button>
-      )}
-      <div className="w-4 h-4 flex items-center justify-center shrink-0">
-        {team?.logo ? (
-          <img src={team.logo} alt="" className="w-4 h-4 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
-        ) : null}
-        <Shield className={`w-3 h-3 text-muted-foreground ${team?.logo ? 'hidden' : ''}`} />
       </div>
-      <span className={`text-[11px] flex-1 truncate ${isWinner ? "font-bold text-foreground" : "text-foreground"}`}>
-        {team?.abbreviation || team?.shortName || "TBD"}
-      </span>
-      {score !== undefined && (
-        <span className={`text-[11px] font-bold min-w-[14px] text-right ${isWinner ? "text-primary" : "text-muted-foreground"}`}>
-          {score}
-        </span>
-      )}
     </div>
   );
 }

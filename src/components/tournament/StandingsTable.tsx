@@ -1,6 +1,7 @@
 import { Shield } from "lucide-react";
 import { StandingRow } from "@/lib/standings";
 import { PromotionRule } from "@/types/tournament";
+import { cn } from "@/lib/utils";
 
 interface StandingsTableProps {
   standings: StandingRow[];
@@ -43,54 +44,49 @@ export default function StandingsTable({ standings, promotions = [], qualifyUnti
             const promo = getPromotion(pos);
             const isEliminated = qualifyUntil !== undefined && pos > qualifyUntil;
             const showDivider = qualifyUntil !== undefined && pos === qualifyUntil + 1;
+            
             return (
-              <>
-                {showDivider && (
-                  <tr key={`divider-${row.teamId}`}>
-                    <td colSpan={10} className="py-0">
-                      <div className="border-t-2 border-dashed border-destructive/40 my-0.5" />
-                    </td>
-                  </tr>
+              <tr
+                key={row.teamId}
+                className={cn(
+                  "border-b border-border/50 transition-colors",
+                  isEliminated ? "opacity-50 bg-destructive/5" : "hover:bg-secondary/30",
+                  showDivider && "border-t-2 border-t-destructive/40"
                 )}
-                <tr
-                  key={row.teamId}
-                  className={`border-b border-border/50 transition-colors ${
-                    isEliminated
-                      ? "opacity-50 bg-destructive/5"
-                      : "hover:bg-secondary/30"
-                  }`}
-                  style={promo ? { borderLeft: `3px solid ${promo.color}` } : undefined}
-                >
-                  <td className="py-2.5 px-2 text-muted-foreground font-mono text-xs">{pos}</td>
-                  <td className="py-2.5 px-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                        {row.team?.logo ? (
-                          <img src={row.team.logo} alt="" className="w-5 h-5 object-contain" />
-                        ) : (
-                          <Shield className="w-3.5 h-3.5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <span className={`font-medium truncate ${isEliminated ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                        {row.team?.shortName || row.team?.name || "—"}
-                      </span>
-                      {isEliminated && (
-                        <span className="text-[10px] text-destructive/70 font-medium shrink-0">Eliminado</span>
+                style={promo ? { borderLeft: `4px solid ${promo.color}` } : undefined}
+              >
+                <td className="py-2.5 px-2 text-muted-foreground font-mono text-xs">{pos}</td>
+                <td className="py-2.5 px-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                      {row.team?.logo ? (
+                        <img src={row.team.logo} alt="" className="w-5 h-5 object-contain" />
+                      ) : (
+                        <Shield className="w-3.5 h-3.5 text-muted-foreground" />
                       )}
                     </div>
-                  </td>
-                  <td className="text-center py-2.5 px-1 font-bold text-foreground">{row.points}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">{row.played}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">{row.wins}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">{row.draws}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">{row.losses}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">{row.goalsFor}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">{row.goalsAgainst}</td>
-                  <td className="text-center py-2.5 px-1 text-muted-foreground">
-                    {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-                  </td>
-                </tr>
-              </>
+                    <span className={cn(
+                      "font-medium truncate",
+                      isEliminated ? "text-muted-foreground line-through" : "text-foreground"
+                    )}>
+                      {row.team?.shortName || row.team?.name || "—"}
+                    </span>
+                    {isEliminated && (
+                      <span className="text-[10px] text-destructive/70 font-medium shrink-0">Eliminado</span>
+                    )}
+                  </div>
+                </td>
+                <td className="text-center py-2.5 px-1 font-bold text-foreground">{row.points}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">{row.played}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">{row.wins}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">{row.draws}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">{row.losses}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">{row.goalsFor}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">{row.goalsAgainst}</td>
+                <td className="text-center py-2.5 px-1 text-muted-foreground">
+                  {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                </td>
+              </tr>
             );
           })}
         </tbody>
