@@ -132,10 +132,27 @@ export default function BracketView({
     return result;
   }
 
-  const allRegularPlayed = regularMatches.length > 0 && regularMatches.every((m) => m.played);
+  // Bug fix #4/#5: allRegularPlayed must check that every match has a defined winner,
+  // not just that it was played. A draw without penalties in a single-leg knockout
+  // is an invalid state — the tournament cannot be finalized without a winner.
+  const allRegularPlayed = regularMatches.length > 0 && regularMatches.every((m) => {
+    if (!m.played) return false;
+    // For BYE matches (empty awayTeamId), they are always resolved
+    if (!m.awayTeamId) return true;
+    // Check if this match has a resolved winner
+    const homeTotal = m.homeScore + (m.homeExtraTime || 0);
+    const awayTotal = m.awayScore + (m.awayExtraTime || 0);
+    if (homeTotal !== awayTotal) return true; // clear winner
+    // Draw: only valid if penalties are defined
+    return m.homePenalties !== undefined && m.awayPenalties !== undefined &&
+           m.homePenalties !== m.awayPenalties;
+  });
 
   const getSingleMatchWinner = (match: Match): string | null => {
     if (!match.played) return null;
+    // BYE match: the team with a real ID wins automatically
+    if (!match.awayTeamId) return match.homeTeamId;
+    if (!match.homeTeamId) return match.awayTeamId;
     const homeTotal = match.homeScore + (match.homeExtraTime || 0);
     const awayTotal = match.awayScore + (match.awayExtraTime || 0);
     if (homeTotal > awayTotal) return match.homeTeamId;
@@ -567,12 +584,33 @@ export default function BracketView({
         </div>
       )}
 
-      {tournament.finalized && (
-        <div className="flex items-center justify-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
-          <Trophy className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-foreground">Temporada {tournament.year} finalizada</span>
-        </div>
-      )}
+      {tournament.finalized && (() => {
+        // Bug fix #7: Show champion name prominently in the finalized banner
+        const finalStage = stages[stages.length - 1];
+        const finalMatchesList = (tournament.matches || []).filter(
+          (m) => !m.isThirdPlace && m.round === stages.length
+        );
+        const finalPairs = getPairs(finalMatchesList);
+        const finalPair = finalPairs[0];
+        const champion = finalPair ? getTieResult(finalPair) : null;
+        const championTeam = champion ? teams.find((t) => t.id === champion) : null;
+        return (
+          <div className="flex items-center justify-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+            <Trophy className="w-5 h-5 text-primary" />
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Temporada {tournament.year} finalizada</p>
+              {championTeam && (
+                <p className="text-sm font-bold text-primary">
+                  🏆 Campeão: {championTeam.name}
+                </p>
+              )}
+            </div>
+            {championTeam?.logo && (
+              <img src={championTeam.logo} alt="" className="w-8 h-8 object-contain" />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Match Popup */}
       {selectedMatch && (

@@ -100,7 +100,9 @@ const TeamCard = memo(function TeamCard({
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Excluir "{team.name}"?</AlertDialogTitle>
-                <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+                <AlertDialogDescription>
+                  Esta ação não pode ser desfeita. Se este time estiver em competições ativas, você será avisado após a exclusão.
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -108,7 +110,7 @@ const TeamCard = memo(function TeamCard({
                   onClick={onDelete}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  Excluir
+                  Excluir mesmo assim
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -302,6 +304,7 @@ const FolderNode = memo(function FolderNode({
 export default function TeamsPage() {
   const {
     teams,
+    tournaments,
     removeTeam,
     addTeam,
     loading,
@@ -364,12 +367,25 @@ export default function TeamsPage() {
     });
   }, []);
 
+  // Bug fix #12: Check referential integrity before deleting a team
+  // Warn if the team is part of active tournaments
   const handleDelete = useCallback(
     (id: string, name: string) => {
+      const activeTournaments = (tournaments || []).filter(
+        (t) => t.teamIds && t.teamIds.includes(id)
+      );
+      if (activeTournaments.length > 0) {
+        const tournamentNames = activeTournaments.map((t) => `"${t.name}"`).join(", ");
+        toast.warning(
+          `"${name}" foi excluído, mas ainda estava em ${activeTournaments.length} competição(es): ${tournamentNames}. Os resultados históricos foram preservados.`,
+          { duration: 6000 }
+        );
+      } else {
+        toast.success(`"${name}" excluído`);
+      }
       removeTeam(id);
-      toast.success(`"${name}" excluído`);
     },
-    [removeTeam],
+    [removeTeam, tournaments],
   );
 
   const handleDuplicate = useCallback(

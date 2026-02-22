@@ -63,6 +63,30 @@ export default function TournamentForm({ onSuccess, editTournament }: Tournament
   const [suicoMataMataInicio, setSuicoMataMataInicio] = useState<KnockoutStage>(editTournament?.suicoMataMataInicio || "1/8");
   const [suicoPlayoffVagas, setSuicoPlayoffVagas] = useState((editTournament?.suicoPlayoffVagas || 8).toString());
 
+  // Bug fix #2: Sync form fields when editTournament loads from Supabase
+  // (useState initializes only once; if data arrives late, fields stay empty)
+  useEffect(() => {
+    if (editTournament) {
+      setName(editTournament.name || "");
+      setSport(editTournament.sport || "Futebol");
+      setYear((editTournament.year || new Date().getFullYear()).toString());
+      setFormat(editTournament.format || "");
+      setNumberOfTeams((editTournament.numberOfTeams || 16).toString());
+      setLogoUrl(editTournament.logo);
+      setPreviewUrl(editTournament.logo);
+      setLigaTurnos((editTournament.ligaTurnos?.toString() || "2") as "1" | "2");
+      setGruposQtd((editTournament.gruposQuantidade || 4).toString());
+      setGruposTurnos((editTournament.gruposTurnos?.toString() || "2") as any);
+      setGruposMataMata(editTournament.gruposMataMataInicio || "1/8");
+      setMataMataInicio(editTournament.mataMataInicio || "1/16");
+      setKnockoutLegMode(editTournament.settings?.knockoutLegMode || "single");
+      setSuicoJogosLiga((editTournament.suicoJogosLiga || 8).toString());
+      setSuicoMataMataInicio(editTournament.suicoMataMataInicio || "1/8");
+      setSuicoPlayoffVagas((editTournament.suicoPlayoffVagas || 8).toString());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTournament?.id]); // Only re-sync when the tournament ID changes
+
   // Revoke Object URLs on unmount
   useEffect(() => {
     return () => {

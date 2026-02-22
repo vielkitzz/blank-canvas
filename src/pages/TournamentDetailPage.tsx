@@ -178,10 +178,24 @@ export default function TournamentDetailPage() {
     : tournament;
 
   // ─── Confirm manual qualifiers & generate knockout ───────────────────────
+  // Bug fix #8/#9: Calculate totalKnockoutTeams dynamically based on group count
+  // and qualifiers per group, not just STAGE_TEAM_COUNTS (which may not match)
+  const qualifiersPerGroup = (() => {
+    const startStage = tournament.gruposMataMataInicio || "1/8";
+    const stageTotal = STAGE_TEAM_COUNTS[startStage] || 16;
+    // Use the smaller of: stageTotal or (groupCount * 2) to ensure we have enough teams
+    const maxFromGroups = groupCount * Math.ceil(stageTotal / groupCount);
+    return Math.max(2, Math.min(stageTotal, maxFromGroups));
+  })();
+
   const handleConfirmQualifiers = (selectedTeamIds: string[]) => {
     const startStage = tournament.gruposMataMataInicio || "1/8";
-    const totalKnockoutTeams = STAGE_TEAM_COUNTS[startStage] || 16;
+    const totalKnockoutTeams = qualifiersPerGroup;
 
+    if (selectedTeamIds.length < 2) {
+      toast.error(`Selecione pelo menos 2 times para o mata-mata.`);
+      return;
+    }
     if (selectedTeamIds.length !== totalKnockoutTeams) {
       toast.error(`Selecione exatamente ${totalKnockoutTeams} times.`);
       return;
@@ -364,64 +378,88 @@ export default function TournamentDetailPage() {
       toast.success(`${allMatches.length} jogos de fase de grupos gerados!`);
     } else if (tournament.format === "mata-mata") {
       const teamIds = [...tournament.teamIds];
-      // Validate power-of-2 count
       const startStage = tournament.mataMataInicio || "1/8";
       const expectedTeams = STAGE_TEAM_COUNTS[startStage] || 16;
-      if (teamIds.length !== expectedTeams) {
-        toast.error(`A fase ${startStage} exige exatamente ${expectedTeams} times. Você tem ${teamIds.length}.`);
+
+      // Validate minimum of 2 teams
+      if (teamIds.length < 2) {
+        toast.error(`Adicione pelo menos 2 times para gerar o chaveamento.`);
         return;
       }
+
+      // Warn if team count doesn't match stage (but still allow with BYE)
+      if (teamIds.length > expectedTeams) {
+        toast.error(`A fase ${startStage} suporta no máximo ${expectedTeams} times. Você tem ${teamIds.length}.`);
+        return;
+      }
+
       // Shuffle
       for (let i = teamIds.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [teamIds[i], teamIds[j]] = [teamIds[j], teamIds[i]];
       }
+
+      // Pad with BYE slots (empty string) to reach next power of 2 if needed
+      let bracketSize = 2;
+      while (bracketSize < teamIds.length) bracketSize *= 2;
+      // Cap at expectedTeams
+      if (bracketSize > expectedTeams) bracketSize = expectedTeams;
+      const paddedIds: (string | null)[] = [...teamIds];
+      while (paddedIds.length < bracketSize) paddedIds.push(null); // null = BYE
+
       const legMode = tournament.settings.knockoutLegMode || "single";
       const newMatches: Match[] = [];
-      for (let i = 0; i < teamIds.length; i += 2) {
-        if (i + 1 < teamIds.length) {
-          if (legMode === "home-away") {
-            const pairId = crypto.randomUUID();
-            newMatches.push({
-              id: crypto.randomUUID(),
-              tournamentId: tournament.id,
-              round: 1,
-              homeTeamId: teamIds[i],
-              awayTeamId: teamIds[i + 1],
-              homeScore: 0,
-              awayScore: 0,
-              played: false,
-              leg: 1,
-              pairId,
-            });
-            newMatches.push({
-              id: crypto.randomUUID(),
-              tournamentId: tournament.id,
-              round: 1,
-              homeTeamId: teamIds[i + 1],
-              awayTeamId: teamIds[i],
-              homeScore: 0,
-              awayScore: 0,
-              played: false,
-              leg: 2,
-              pairId,
-            });
-          } else {
-            newMatches.push({
-              id: crypto.randomUUID(),
-              tournamentId: tournament.id,
-              round: 1,
-              homeTeamId: teamIds[i],
-              awayTeamId: teamIds[i + 1],
-              homeScore: 0,
-              awayScore: 0,
-              played: false,
-            });
-          }
+      for (let i = 0; i < paddedIds.length; i += 2) {
+        const homeId = paddedIds[i];
+        const awayId = paddedIds[i + 1];
+        // Skip fully empty slots
+        if (!homeId && !awayId) continue;
+        if (legMode === "home-away" && homeId && awayId) {
+          const pairId = crypto.randomUUID();
+          newMatches.push({
+            id: crypto.randomUUID(),
+            tournamentId: tournament.id,
+            round: 1,
+            homeTeamId: homeId,
+            awayTeamId: awayId,
+            homeScore: 0,
+            awayScore: 0,
+            played: false,
+            leg: 1,
+            pairId,
+          });
+          newMatches.push({
+            id: crypto.randomUUID(),
+            tournamentId: tournament.id,
+            round: 1,
+            homeTeamId: awayId,
+            awayTeamId: homeId,
+            homeScore: 0,
+            awayScore: 0,
+            played: false,
+            leg: 2,
+            pairId,
+          });
+        } else {
+          // Single leg or BYE match
+          const matchHomeId = homeId || awayId!; // BYE: the real team advances
+          const matchAwayId = homeId && awayId ? awayId : ""; // empty = BYE
+          const isBye = !homeId || !awayId;
+          newMatches.push({
+            id: crypto.randomUUID(),
+            tournamentId: tournament.id,
+            round: 1,
+            homeTeamId: matchHomeId,
+            awayTeamId: matchAwayId,
+            homeScore: isBye ? 1 : 0,
+            awayScore: 0,
+            played: isBye, // BYE matches are auto-played
+          });
         }
       }
       updateTournament(tournament.id, { matches: newMatches });
-      toast.success(`${newMatches.length} jogos gerados!`);
+      const byeCount = newMatches.filter((m) => m.awayTeamId === "").length;
+      toast.success(`${newMatches.length} jogos gerados!${byeCount > 0 ? ` (${byeCount} BYE automático)` : ""}`);
     }
   };
 
@@ -445,29 +483,29 @@ export default function TournamentDetailPage() {
     : [];
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 lg:p-8">
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
+      {/* Header - Bug fix #13: flex-wrap for mobile, smaller gap */}
+      <div className="flex items-start justify-between mb-6 gap-2 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="w-12 h-12 flex items-center justify-center cursor-pointer transition-colors overflow-hidden"
+              className="w-10 h-10 lg:w-12 lg:h-12 flex items-center justify-center cursor-pointer transition-colors overflow-hidden shrink-0"
             >
               {tournament.logo ? (
-                <img src={tournament.logo} alt="" className="w-12 h-12 object-contain" />
+                <img src={tournament.logo} alt="" className="w-10 h-10 lg:w-12 lg:h-12 object-contain" />
               ) : (
-                <Trophy className="w-6 h-6 text-muted-foreground" />
+                <Trophy className="w-5 h-5 lg:w-6 lg:h-6 text-muted-foreground" />
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-display font-bold text-foreground">{tournament.name}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h1 className="text-base lg:text-xl font-display font-bold text-foreground truncate max-w-[160px] sm:max-w-none">{tournament.name}</h1>
                 <div className="flex items-center gap-1">
                   {optionIcons.map((item) => (
                     <button
@@ -481,13 +519,13 @@ export default function TournamentDetailPage() {
                   ))}
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate">
                 {tournament.sport} · {formatLabels[tournament.format]} · {tournament.numberOfTeams} times
               </p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Season/Year selector */}
           <div className="relative">
             <button
@@ -839,9 +877,7 @@ export default function TournamentDetailPage() {
               <GroupQualificationView
                 groupCount={groupCount}
                 standingsByGroup={standingsByGroup}
-                totalKnockoutTeams={(() => {
-                  return STAGE_TEAM_COUNTS[tournament.gruposMataMataInicio || "1/8"] || 16;
-                })()}
+                totalKnockoutTeams={qualifiersPerGroup}
                 allGroupMatchesPlayed={allGroupMatchesPlayed}
                 confirmedTeamIds={tournament.settings.qualifiedTeamIds}
                 onConfirm={handleConfirmQualifiers}
@@ -913,9 +949,7 @@ export default function TournamentDetailPage() {
                   <GroupQualificationView
                     groupCount={groupCount}
                     standingsByGroup={standingsByGroup}
-                    totalKnockoutTeams={(() => {
-                      return STAGE_TEAM_COUNTS[tournament.gruposMataMataInicio || "1/8"] || 16;
-                    })()}
+                    totalKnockoutTeams={qualifiersPerGroup}
                     allGroupMatchesPlayed={allGroupMatchesPlayed}
                     confirmedTeamIds={tournament.settings.qualifiedTeamIds}
                     onConfirm={handleConfirmQualifiers}

@@ -49,7 +49,8 @@ export default function AppLayout() {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto pt-14 lg:pt-0">
+      {/* Bug fix #13: pt-16 ensures content is not hidden behind the fixed mobile header (h-14 = 56px) */}
+      <main className="flex-1 overflow-auto pt-16 lg:pt-0 min-w-0">
         <AnimatePresence mode="wait">
           <PageTransition key={location.pathname}>
             <Outlet />

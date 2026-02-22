@@ -68,6 +68,34 @@ export default function MatchPopup({
 
   const [simulatedHalves, setSimulatedHalves] = useState<Set<HalfKey>>(new Set());
 
+  // Bug fix #10: Pre-load existing scores when opening a played match for editing
+  useEffect(() => {
+    if (match.played) {
+      // Distribute existing score into h1/h2 halves (best approximation)
+      // We store the full score in h1 and leave h2 as 0, so the total is correct
+      setScores({
+        h1: [match.homeScore, match.awayScore],
+        h2: [0, 0],
+        et1: [match.homeExtraTime ? match.homeExtraTime : 0, match.awayExtraTime ? match.awayExtraTime : 0],
+        et2: [0, 0],
+      });
+      if (match.homeExtraTime !== undefined || match.awayExtraTime !== undefined) {
+        setShowExtraTime(true);
+        setActiveHalf("et1");
+      }
+      if (match.homePenalties !== undefined && match.awayPenalties !== undefined) {
+        setShowPenalties(true);
+        const homeKicks = Array.from({ length: match.homePenalties + (match.awayPenalties - match.homePenalties > 0 ? 1 : 0) }, (_, i) => i < match.homePenalties);
+        const awayKicks = Array.from({ length: match.awayPenalties + (match.homePenalties - match.awayPenalties > 0 ? 1 : 0) }, (_, i) => i < match.awayPenalties);
+        setPenalties({ home: homeKicks, away: awayKicks });
+        setPenaltyFinished(true);
+      }
+      // Mark halves as simulated so the UI shows the loaded scores
+      setSimulatedHalves(new Set(["h1", "h2"]));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id]); // Re-run only when a different match is opened
+
   // After h2 is simulated in knockout: auto trigger extra time or penalties
   useEffect(() => {
     if (!isKnockout) return;
