@@ -203,7 +203,7 @@ function parseRulesLine(line: string, patch: Partial<SquadGeneratorConfig>, comp
   }
 }
 
-function parseRosterLine(line: string): PartialPlayerSpec | undefined {
+function parseRosterLine(line: string, forcedCountry?: string): PartialPlayerSpec | undefined {
   const tokens = line
     .split(/[,;|\t]+/)
     .map((t) => t.trim())
@@ -211,6 +211,8 @@ function parseRosterLine(line: string): PartialPlayerSpec | undefined {
   if (tokens.length === 0) return undefined;
 
   const spec: PartialPlayerSpec = {};
+  if (forcedCountry) spec.nationality = forcedCountry;
+
   const nameCandidates: string[] = [];
 
   tokens.forEach((token, index) => {
