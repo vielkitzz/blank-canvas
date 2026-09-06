@@ -10,6 +10,8 @@ import { COUNTRIES_DATA } from "@/data/countries";
 import { randomNameForCountry } from "@/data/playerNames";
 import { Player } from "@/types/tournament";
 import { SKILL_MAX, SKILL_MIN, clampSkill } from "@/lib/playerSkill";
+import { extractCustomEmojiCountry } from "@/lib/textEmoji";
+
 import {
   POSITION_CODES,
   PositionCode,
@@ -203,7 +205,7 @@ function parseRulesLine(line: string, patch: Partial<SquadGeneratorConfig>, comp
   }
 }
 
-function parseRosterLine(line: string): PartialPlayerSpec | undefined {
+function parseRosterLine(line: string, forcedCountry?: string): PartialPlayerSpec | undefined {
   const tokens = line
     .split(/[,;|\t]+/)
     .map((t) => t.trim())
@@ -211,6 +213,8 @@ function parseRosterLine(line: string): PartialPlayerSpec | undefined {
   if (tokens.length === 0) return undefined;
 
   const spec: PartialPlayerSpec = {};
+  if (forcedCountry) spec.nationality = forcedCountry;
+
   const nameCandidates: string[] = [];
 
   tokens.forEach((token, index) => {
@@ -283,19 +287,22 @@ export function parseSquadText(text: string): ParseSquadTextResult {
     return { mode: "empty", configPatch, players, warnings, summary: [] };
   }
 
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const { text: line, country: emojiCountry } = extractCustomEmojiCountry(rawLine);
+    if (!line) continue;
     if (looksLikeRoster(line)) {
-      const spec = parseRosterLine(line);
+      const spec = parseRosterLine(line, emojiCountry);
       if (spec) players.push(spec);
-      else warnings.push(`Linha não reconhecida: "${line}"`);
+      else warnings.push(`Linha não reconhecida: "${rawLine}"`);
     } else {
       const before = JSON.stringify(configPatch) + JSON.stringify(comp);
       parseRulesLine(line, configPatch, comp);
       if (before === JSON.stringify(configPatch) + JSON.stringify(comp)) {
-        warnings.push(`Linha não reconhecida: "${line}"`);
+        warnings.push(`Linha não reconhecida: "${rawLine}"`);
       }
     }
   }
+
 
   if (comp.value) configPatch.composition = comp.value;
   if (players.length > 0) configPatch.size = players.length;

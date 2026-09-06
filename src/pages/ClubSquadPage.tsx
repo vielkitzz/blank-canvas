@@ -20,6 +20,7 @@ import {
   Unlink,
   RefreshCw,
   Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import TeamLogo from "@/components/TeamLogo";
 import CountryFlag from "@/components/CountryFlag";
@@ -32,6 +33,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { clearLineupCache } from "@/lib/solaraLineups";
 import { playersFromJson } from "@/lib/squadGenerator";
 import GenerateSquadDialog from "@/components/squad/GenerateSquadDialog";
+import SquadEvolutionDialog from "@/components/squad/SquadEvolutionDialog";
+import RichText from "@/components/RichText";
 
 const MAX_PLAYERS = 30;
 
@@ -325,8 +328,9 @@ function SolaraSyncButton({ tm2TeamId }: SolaraSyncButtonProps) {
 export default function ClubSquadPage() {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate();
-  const { teams, players, removePlayer, addPlayer, addPlayers, updatePlayer } = useTournamentStore();
+  const { teams, players, removePlayer, addPlayer, addPlayers, updatePlayer, updateTeam } = useTournamentStore();
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
+  const [showEvolutionDialog, setShowEvolutionDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const team = useMemo(() => teams.find((t) => t.id === teamId), [teams, teamId]);
@@ -517,6 +521,12 @@ export default function ClubSquadPage() {
                 </Button>
               </>
             )}
+            {squad.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setShowEvolutionDialog(true)}>
+                <TrendingUp className="w-4 h-4 mr-1" />
+                Rate e idade
+              </Button>
+            )}
             {squad.length < MAX_PLAYERS && (
               <Button variant="outline" size="sm" onClick={() => setShowGenerateDialog(true)}>
                 <Sparkles className="w-4 h-4 mr-1" />
@@ -563,7 +573,7 @@ export default function ClubSquadPage() {
                 {squad.map((player) => (
                   <TableRow key={player.id}>
                     <TableCell className="font-medium">{player.shirtNumber ?? "—"}</TableCell>
-                    <TableCell className="font-medium">{player.name}</TableCell>
+                    <TableCell className="font-medium"><RichText>{player.name}</RichText></TableCell>
                     <TableCell>
                       {player.nationality ? (
                         <span className="flex items-center gap-1.5">
@@ -646,6 +656,22 @@ export default function ClubSquadPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <SquadEvolutionDialog
+        open={showEvolutionDialog}
+        onOpenChange={setShowEvolutionDialog}
+        squad={squad}
+        teamRate={team.rate ?? 5}
+        onApply={async (changes, newRate) => {
+          for (const c of changes) {
+            await updatePlayer(c.player.id, {
+              skill: c.newSkill,
+              ...(c.newAge != null ? { age: c.newAge } : {}),
+            });
+          }
+          if (newRate != null && teamId) await updateTeam(teamId, { rate: newRate });
+          toast.success(`${changes.length} jogadores atualizados`);
+        }}
+      />
       {teamId && (
         <GenerateSquadDialog
           open={showGenerateDialog}
