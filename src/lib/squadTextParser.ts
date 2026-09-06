@@ -10,6 +10,8 @@ import { COUNTRIES_DATA } from "@/data/countries";
 import { randomNameForCountry } from "@/data/playerNames";
 import { Player } from "@/types/tournament";
 import { SKILL_MAX, SKILL_MIN, clampSkill } from "@/lib/playerSkill";
+import { extractCustomEmojiCountry } from "@/lib/textEmoji";
+
 import {
   POSITION_CODES,
   PositionCode,
